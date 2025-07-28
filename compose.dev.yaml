@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  nextjs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # For dev, we only build up to the 'build' stage and then run 'npm run dev'
+      # We override the final CMD from the Dockerfile
+    command: npm run dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount local code into the container for hot-reloading
+      - .:/usr/src/app
+      # Anonymous volume to prevent local node_modules from overwriting container's
+      - /usr/src/app/node_modules
+    env_file:
+      - .env
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=addis-information-highway
+    ports:
+      # Map DB port to host for easy access with a DB tool like DBeaver
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
