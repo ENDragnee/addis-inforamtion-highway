@@ -40,3 +40,20 @@ Fayda is the cornerstone of the Addis Information Highway's trust and security m
 *   **Containerization:** Docker and Docker Compose to ensure a consistent development and deployment environment for all microservices.
 *   **Frontend (for Demo Dashboard):** React.js to build a simple user interface for demonstrating the data exchange process and system monitoring.
 *   **API Protocol:** RESTful APIs for communication between the different components of the system.
+
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
