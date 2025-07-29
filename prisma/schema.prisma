@@ -59,6 +59,7 @@ model Relationship {
   id        String @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  status RelationshipStatus @default(PENDING)
   requesterRoleId String
   requesterRole   Role   @relation("RequesterRole", fields: [requesterRoleId], references: [id])
   providerRoleId String
@@ -117,4 +118,11 @@ enum DataRequestStatus {
 enum InstitutionUserRole {
   ADMIN 
   MEMBER
+}
+
+enum RelationshipStatus {
+  PENDING  
+  ACTIVE
+  REJECTED
+  REVOKED
 }

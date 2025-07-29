@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.12.0",
+    "bcrypt": "^6.0.0",
     "cookie": "^1.0.2",
     "jose": "^6.0.12",
     "next": "15.4.4",
@@ -18,11 +19,13 @@
     "prisma": "^6.12.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "sonner": "^2.0.6"
+    "sonner": "^2.0.6",
+    "zod": "^4.0.13"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/bcrypt": "^6.0.0",
     "@types/cookie": "^0.6.0",
     "@types/node": "^20",
     "@types/react": "^19",
