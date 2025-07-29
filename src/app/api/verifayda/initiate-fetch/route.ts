@@ -1,57 +1,55 @@
+// @/app/api/verifayda/initiate-fetch/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { generateCodeVerifier, generateCodeChallenge } from '@/lib/pkce';
-import { serialize } from 'cookie';
+import { generateCodeVerifier, generateCodeChallenge } from '@/lib/pkce'; // Assuming pkce.ts exists
+
+const generateState = () => generateCodeVerifier();
 
 export async function GET(req: NextRequest) {
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = generateCodeChallenge(codeVerifier);
-  const state = generateCodeVerifier(); 
+  try {
+    const fin = req.nextUrl.searchParams.get('fin');
+    if (!fin) {
+      throw new Error('FIN (Federal ID Number) is required.');
+    }
 
-  // Store the code_verifier and state in a secure, httpOnly cookie
-  const verifierCookie = serialize('code_verifier', codeVerifier, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV !== 'development',
-    path: '/',
-    maxAge: 60 * 15, // 15 minutes
-  });
+    const state = generateState();
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = generateCodeChallenge(codeVerifier);
 
-  const stateCookie = serialize('state', state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV !== 'development',
-    path: '/',
-    maxAge: 60 * 15, // 15 minutes
-  });
+    const claims = {
+      userinfo: {
+        name: { essential: true },
+        email: { essential: true },
+        picture: { essential: true },
+      },
+    };
 
-  const claims = {
-    userinfo: {
-      name: { essential: true },
-      email: { essential: true },
-      picture: { essential: true },
-      phone_number: { essential: false },
-      gender: { essential: false },
-      birthdate: { essential: false },
-      address: { essential: false },
-    },
-    id_token: {},
-  };
+    const params = new URLSearchParams({
+      client_id: process.env.CLIENT_ID!,
+      response_type: 'code',
+      redirect_uri: process.env.REDIRECT_URI!,
+      scope: 'openid profile email',
+      state: state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+      claims: JSON.stringify(claims),
+      // IMPORTANT: Pass the FIN as a login_hint
+      login_hint: `fin:${fin}`, 
+    });
 
-  const params = new URLSearchParams({
-    client_id: process.env.CLIENT_ID!,
-    response_type: 'code',
-    redirect_uri: process.env.REDIRECT_URI!,
-    scope: 'openid profile email',
-    state: state,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-    claims: JSON.stringify(claims),
-  });
+    const authorizationUrl = `${process.env.AUTHORIZATION_ENDPOINT}?${params.toString()}`;
 
-  const authorizationUrl = `${process.env.AUTHORIZATION_ENDPOINT}?${params.toString()}`;
+    const response = NextResponse.redirect(authorizationUrl);
+    
+    // Set cookies on the outgoing response
+    response.cookies.set('state', state, { httpOnly: true, secure: true, path: '/', maxAge: 60 * 15 });
+    response.cookies.set('code_verifier', codeVerifier, { httpOnly: true, secure: true, path: '/', maxAge: 60 * 15 });
 
-  const response = NextResponse.redirect(authorizationUrl);
-  // Set cookies in the response headers
-  response.headers.append('Set-Cookie', verifierCookie);
-  response.headers.append('Set-Cookie', stateCookie);
-
-  return response;
+    return response;
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Failed to initiate login";
+    const failureUrl = new URL('/', req.url);
+    failureUrl.searchParams.set('status', 'error');
+    failureUrl.searchParams.set('message', errorMessage);
+    return NextResponse.redirect(failureUrl);
+  }
 }

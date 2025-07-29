@@ -1,5 +1,5 @@
+// @/lib/esignet.ts
 import { SignJWT, importPKCS8 } from 'jose';
-import { TextEncoder } from 'util';
 
 export async function createClientAssertion(): Promise<string> {
   const clientId = process.env.CLIENT_ID!;
