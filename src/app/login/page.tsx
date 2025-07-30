@@ -5,8 +5,6 @@ import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
-
-// Import Shadcn UI components
 import AuthLayout from '@/components/auth/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,8 +17,18 @@ import {
   CardHeader, 
   CardTitle 
 } from '@/components/ui/card';
+import { Suspense } from 'react';
+import Loading from '@/components/ui/loading';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <LoginPageFunction />
+    </Suspense>
+  );
+}
+
+function LoginPageFunction() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
