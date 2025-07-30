@@ -74,11 +74,6 @@ Our company provides the **courier service itself**. We are the trusted transpor
 
 You can set up this project in one of two ways. Docker Compose is recommended for a consistent, isolated environment that "just works".
 
-### Default Super user email and password
-You can setup the password using the run-hash.ts and adding the password into the Super user table in the database.
--   **Email:** `superuser@test.com`
--   **Password:** `qazwsxedc`
-
 ### Prerequisites
 
 -   **Git:** To clone the repository.
@@ -166,6 +161,11 @@ This method requires you to run the Node.js application directly on your machine
         npm run build
         npm run start
         ```
+9.  **Seed the Database (Optional)**
+    If you want to populate the database with initial data, you can run:
+    ```bash
+    npx prisma db seed
+    ```
 
 The application will now be available at [http://localhost:3000](http://localhost:3000).
 
