@@ -27,7 +27,7 @@ export default function InstitutionProfilePage() {
 
   useEffect(() => {
     async function fetchProfile() {
-      const res = await fetch('/api/dashboard/institution', { cache: 'no-store' })
+      const res = await fetch('/api/v1/dashboard/institution', { cache: 'no-store' })
       if (!res.ok) {
         setError('Failed to load institution')
         return
@@ -43,7 +43,7 @@ export default function InstitutionProfilePage() {
     e.preventDefault()
     setError('')
     setMessage('')
-    const res = await fetch('/api/dashboard/institution', {
+    const res = await fetch('/api/v1/dashboard/institution', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),

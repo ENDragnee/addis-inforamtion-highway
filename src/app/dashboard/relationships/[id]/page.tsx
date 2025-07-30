@@ -15,7 +15,7 @@ export default function RelationshipDetailsPage() {
   const id = params.id as string;
 
   const { data, error, mutate } = useSWR(
-    id ? `/api/dashboard/relationships/${id}` : null,
+    id ? `/api/v1/dashboard/relationships/${id}` : null,
     fetcher
   );
 
@@ -25,7 +25,7 @@ export default function RelationshipDetailsPage() {
   const { relationship } = data;
 
   async function updateStatus(newStatus: 'ACTIVE' | 'REJECTED' | 'REVOKED') {
-    await fetch(`/api/dashboard/relationships/${id}`, {
+    await fetch(`/api/v1/dashboard/relationships/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ newStatus }),

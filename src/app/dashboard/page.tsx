@@ -1,74 +1,134 @@
-import Link from 'next/link'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import prisma from '@/lib/prisma';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+
+async function getDashboardData(institutionId: string) {
+  const [activeRelationships, requestsMade, recentRequests] = await Promise.all([
+    // Count active relationships this institution is part of
+    prisma.relationship.count({
+      where: {
+        status: 'ACTIVE',
+        OR: [
+          { requesterRole: { institutions: { some: { id: institutionId } } } },
+          { providerRole: { institutions: { some: { id: institutionId } } } },
+        ],
+      },
+    }),
+    // Count data requests made by this institution
+    prisma.dataRequest.count({
+      where: { requesterId: institutionId },
+    }),
+    // Get the 5 most recent requests involving this institution
+    prisma.dataRequest.findMany({
+      where: {
+        OR: [
+          { requesterId: institutionId },
+          { providerId: institutionId },
+        ],
+      },
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        requester: { select: { name: true } },
+        provider: { select: { name: true } },
+        dataSchema: { select: { schemaId: true } },
+      },
+    }),
+  ]);
+  return { activeRelationships, requestsMade, recentRequests };
+}
+
 
 export default async function DashboardPage() {
-  // Ensure user is authenticated
-  const session = await getServerSession(authOptions)
-  if (!session) {
-    redirect('/login')
-  }
+  const session = await getServerSession(authOptions);
+  // The layout already protects this page, but it's good practice to have the session object
+  const institutionId = session!.user.institutionId!;
+  const { activeRelationships, requestsMade, recentRequests } = await getDashboardData(institutionId);
 
   return (
-    <div className="flex h-screen">
-      {/* Sidebar */}
-      <aside className="w-64 bg-gray-50 border-r">
-        <div className="p-4 text-xl font-bold">
-          Partner Dashboard
-        </div>
-        <nav className="mt-6 flex flex-col space-y-1">
-          <Link
-            href="/dashboard"
-            className="px-4 py-2 rounded-lg hover:bg-gray-200"
-          >
-            Home
-          </Link>
-          <Link
-            href="/dashboard/relationships"
-            className="px-4 py-2 rounded-lg hover:bg-gray-200"
-          >
-            Relationships
-          </Link>
-          <Link
-            href="/dashboard/institution"
-            className="px-4 py-2 rounded-lg hover:bg-gray-200"
-          >
-            Institution
-          </Link>
-          <Link
-            href="/dashboard/schemas"
-            className="px-4 py-2 rounded-lg hover:bg-gray-200"
-          >
-            Schemas
-          </Link>
-          <Link
-            href="/dashboard/roles"
-            className="px-4 py-2 rounded-lg hover:bg-gray-200"
-          >
-            Roles
-          </Link>
-        </nav>
-        <div className="mt-auto p-4">
-          <button
-            onClick={() => {
-              // client-side sign out
-              window.location.href = '/api/auth/signout'
-            }}
-            className="w-full px-4 py-2 text-left rounded-lg hover:bg-gray-200"
-          >
-            Sign Out
-          </button>
-        </div>
-      </aside>
-
-      {/* Main content area */}
-      <main className="flex-1 bg-white p-8 overflow-auto">
-        <h1 className="text-3xl font-semibold mb-4">Welcome, {session.user?.name || session.user?.email}</h1>
-        <p className="text-gray-600">
-          Select an option from the sidebar to get started.
-        </p>
-      </main>
+    <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:col-span-2">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Active Relationships</CardDescription>
+            <CardTitle className="text-4xl">{activeRelationships}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xs text-muted-foreground">
+              Total approved data sharing connections.
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Data Requests Made</CardDescription>
+            <CardTitle className="text-4xl">{requestsMade}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xs text-muted-foreground">
+              Total requests initiated by your institution.
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Consent Rate</CardDescription>
+            <CardTitle className="text-4xl">92.1%</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xs text-muted-foreground">
+              (Placeholder) of requests approved by users.
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>
+            The latest data requests involving your institution.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Role</TableHead>
+                <TableHead>Counterparty</TableHead>
+                <TableHead>Schema</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {recentRequests.map(req => (
+                <TableRow key={req.id}>
+                  <TableCell>
+                    {req.requesterId === institutionId ? (
+                        <Badge variant="outline">Requester</Badge>
+                    ) : (
+                        <Badge variant="secondary">Provider</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {req.requesterId === institutionId ? req.provider.name : req.requester.name}
+                  </TableCell>
+                  <TableCell>{req.dataSchema.schemaId}</TableCell>
+                  <TableCell>
+                    <Badge variant={req.status === 'COMPLETED' || req.status === 'APPROVED' ? 'default' : 'destructive'}>
+                      {req.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{new Date(req.createdAt).toLocaleDateString()}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
-  )
+  );
 }

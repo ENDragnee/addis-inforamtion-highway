@@ -5,6 +5,7 @@ import AuthProvider from "./context/AuthProvider";
 import { ThemeProvider } from "./context/ThemeProvider";
 import { NavbarProvider } from "./context/NavbarContext";
 import ClientLayout from "../components/ClientLayout"; 
+import { Toaster } from 'react-hot-toast'; // Import the toaster
 
 export const metadata: Metadata = {
   title: "Addis-Information-Highway",
@@ -28,7 +29,10 @@ export default function RootLayout({
           <AuthProvider>
             <NavbarProvider>
               {/* Use the ClientLayout to wrap the children */}
-              <ClientLayout>{children}</ClientLayout>
+              <ClientLayout>
+                {children}
+                <Toaster position="bottom-right" /> 
+              </ClientLayout>
             </NavbarProvider>
           </AuthProvider>
         </ThemeProvider>
