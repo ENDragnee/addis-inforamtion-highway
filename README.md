@@ -75,6 +75,7 @@ Our company provides the **courier service itself**. We are the trusted transpor
 You can set up this project in one of two ways. Docker Compose is recommended for a consistent, isolated environment that "just works".
 
 ### Default Super user email and password
+You can setup the password using the run-hash.ts and adding the password into the Super user table in the database.
 -   **Email:** `superuser@test.com`
 -   **Password:** `qazwsxedc`
 
