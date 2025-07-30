@@ -1,16 +1,13 @@
+// app/layout.tsx
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "./context/AuthProvider";
 import { ThemeProvider } from "./context/ThemeProvider";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import { NavbarProvider } from "./context/NavbarContext";
+import ClientLayout from "../components/ClientLayout"; 
 
 export const metadata: Metadata = {
-  title: "Addis-Inforamtion-Highway",
+  title: "Addis-Information-Highway",
   description: "Secure, User-Consented Data Sharing",
 };
 
@@ -21,14 +18,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} font-sans antialiased`}>
+      <body className={`font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <NavbarProvider>
+              {/* Use the ClientLayout to wrap the children */}
+              <ClientLayout>{children}</ClientLayout>
+            </NavbarProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
