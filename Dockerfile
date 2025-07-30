@@ -1,53 +1,57 @@
 # syntax=docker/dockerfile:1
+# Use a specific, consistent version of Node.js
 ARG NODE_VERSION=24.4.1
 
+# ---- Base ----
+# A common base stage to define the working directory and user
 FROM node:${NODE_VERSION}-alpine AS base
 WORKDIR /usr/src/app
 
-################################################################################
-# Deps Stage: Install production dependencies
+# ---- Dependencies ----
+# This stage is dedicated to installing production dependencies.
+# It's a separate stage for better layer caching.
 FROM base AS deps
-RUN apk add --no-cache --virtual .fetch-deps python3 make g++
+# Add python/make/g++ for native dependencies, common in many npm packages.
+RUN apk add --no-cache python3 make g++
 COPY package.json package-lock.json ./
+# Use 'npm ci' for clean, reproducible installs from the lockfile.
+RUN npm ci --omit=dev
 
-# Re‑sync the lockfile to package.json
-RUN npm install --package-lock-only
-
-# Now ci will work
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --omit=dev
-
-RUN apk del .fetch-deps
-
-################################################################################
-# Build Stage: Build the application (with dev deps)
-FROM base AS build
-RUN apk add --no-cache --virtual .build-deps python3 make g++
+# ---- Builder ----
+# This stage builds the Next.js application.
+FROM base AS builder
+# Add build-time dependencies
+RUN apk add --no-cache python3 make g++
 COPY package.json package-lock.json ./
-
-# Re‑sync lock here too (so dev deps install cleanly)
-RUN npm install --package-lock-only
-
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci
-
+# Install ALL dependencies, including devDependencies needed for building.
+RUN npm ci
+# Copy the rest of the application source code
 COPY . .
+# Generate Prisma Client so it's available during the build process
 RUN npx prisma generate
+# Build the Next.js application. This will now use the `output: 'standalone'`
+# configuration from next.config.mjs.
 RUN npm run build
-RUN apk del .build-deps
 
-################################################################################
-# Final Stage: Run the application
-FROM node:${NODE_VERSION}-alpine AS final
+# ---- Runner (Final Production Image) ----
+# This is the final, minimal image that will run in production.
+FROM base AS final
 WORKDIR /usr/src/app
 ENV NODE_ENV=production
+# Run as a non-root user for better security.
 USER node
 
-COPY --from=deps /usr/src/app/node_modules ./node_modules
-COPY --from=build /usr/src/app/.next ./.next
-COPY --from=build /usr/src/app/public ./public
-COPY --from=build /usr/src/app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=build /usr/src/app/prisma/schema.prisma ./prisma/schema.prisma
+# Copy the standalone output from the builder stage.
+# This includes the server.js, a minimal node_modules, and necessary .next files.
+COPY --from=builder --chown=node:node /usr/src/app/.next/standalone ./
 
+# Copy the public and static assets.
+COPY --from=builder --chown=node:node /usr/src/app/public ./public
+COPY --from=builder --chown=node:node /usr/src/app/.next/static ./.next/static
+
+# Expose the port Next.js runs on.
 EXPOSE 3000
-CMD ["npm", "start"]
+
+# The standalone output creates a 'server.js' file.
+# Running this directly is more efficient than going through 'npm start'.
+CMD ["node", "server.js"]
