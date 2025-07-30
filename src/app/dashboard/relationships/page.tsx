@@ -1,3 +1,4 @@
+"use client"
 import React, { useState } from 'react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { useSession } from 'next-auth/react';

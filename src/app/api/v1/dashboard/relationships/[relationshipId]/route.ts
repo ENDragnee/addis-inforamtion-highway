@@ -2,10 +2,14 @@
 
 import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 
-export async function PATCH(req: NextRequest, { params }: { params: { relationshipId: string } }) {
+interface RouteParams {
+  params: Promise<{ relationshipId: string }>;
+}
+
+export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const session = await getServerSession(authOptions)
 
   if (!session || session.user.type !== 'INSTITUTION_USER') {
@@ -13,7 +17,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { relationsh
   }
 
   const { institutionId, institutionRole } = session.user
-  const { relationshipId } = params
+  const { relationshipId } = await params
 
   const body = await req.json()
   const { newStatus } = body
