@@ -1,64 +1,94 @@
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
+import React, { useState } from 'react';
+import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import { useSession } from 'next-auth/react';
+import useSWR from 'swr';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-export default async function RelationshipsPage() {
-  const session = await getServerSession(authOptions)
-  if (!session) {
-    redirect('/login')
-  }
+// Fetcher for SWR
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
-  // Fetch relationships from your API
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/dashboard/relationships`, {
-    headers: {
-      Cookie: '', // Session cookie handled automatically in SSR context
-    },
-    cache: 'no-store',
-  })
+export default function RelationshipsPage() {
+  const { data: session } = useSession();
+  const { data, error, mutate } = useSWR<{ relationships: any[] }>('/api/dashboard/relationships', fetcher);
+  const [providerRoleId, setProviderRoleId] = useState('');
+  const [dataSchemaId, setDataSchemaId] = useState('');
 
-  const data = await res.json()
+  const handleCreate = async () => {
+    await fetch('/api/dashboard/relationships', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerRoleId, dataSchemaId }),
+    });
+    mutate(); // refresh list
+  };
 
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-bold mb-4">Relationships</h1>
-      <Link
-        href="/dashboard/relationships/new"
-        className="inline-block mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-      >
-        Propose New Relationship
-      </Link>
-      {data?.relationships?.length > 0 ? (
-        <table className="w-full text-left border">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="px-4 py-2 border">ID</th>
-              <th className="px-4 py-2 border">Status</th>
-              <th className="px-4 py-2 border">Created</th>
-              <th className="px-4 py-2 border">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.relationships.map((rel: any) => (
-              <tr key={rel.id}>
-                <td className="px-4 py-2 border">{rel.id}</td>
-                <td className="px-4 py-2 border">{rel.status}</td>
-                <td className="px-4 py-2 border">{new Date(rel.createdAt).toLocaleDateString()}</td>
-                <td className="px-4 py-2 border">
-                  <Link
-                    href={`/dashboard/relationships/${rel.id}`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    Manage
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p className="text-gray-600">No relationships found.</p>
-      )}
-    </main>
-  )
+    <DashboardLayout>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Relationships</h1>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>Create New</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Propose a Relationship</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-1 space-y-1">
+                  <Label htmlFor="providerRoleId">Provider Role ID</Label>
+                  <Input id="providerRoleId" value={providerRoleId} onChange={e => setProviderRoleId(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-1 space-y-1">
+                  <Label htmlFor="dataSchemaId">Data Schema ID</Label>
+                  <Input id="dataSchemaId" value={dataSchemaId} onChange={e => setDataSchemaId(e.target.value)} />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => { setProviderRoleId(''); setDataSchemaId(''); }}>Cancel</Button>
+                <Button onClick={handleCreate}>Submit</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {!data && !error && <p>Loading...</p>}
+        {error && <p className="text-red-500">Failed to load relationships.</p>}
+
+        {data && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Requester Role</TableHead>
+                <TableHead>Provider Role</TableHead>
+                <TableHead>Schema</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.relationships.map(rel => (
+                <TableRow key={rel.id} className="hover:bg-gray-50">
+                  <TableCell>{rel.id}</TableCell>
+                  <TableCell>{rel.requesterRole.name}</TableCell>
+                  <TableCell>{rel.providerRole.name}</TableCell>
+                  <TableCell>{rel.dataSchema.schemaId}</TableCell>
+                  <TableCell>{rel.status}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+    </DashboardLayout>
+  );
 }
