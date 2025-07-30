@@ -1,103 +1,90 @@
-import Image from "next/image";
+import Link from 'next/link';
+import Navbar from '@/components/Navbar';
+import { UserCheck, ShieldCheck, GitBranchPlus, ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/button'; // Import Shadcn's Button
+import { 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card'; // Import Shadcn's Card components
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <>
+      <Navbar />
+      <main className="pt-20"> 
+        
+        <section className="container mx-auto text-center py-20 px-4">
+          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight">
+            The Future of Secure Data Exchange
+          </h1>
+          <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
+            Our platform acts as a <span className="font-bold text-primary">Trust Broker</span>, not a data proxy. We empower users and connect institutions with unparalleled security and scalability.
+          </p>
+          <div className="mt-8 flex justify-center">
+            {/* UPDATED: Using Shadcn Button with asChild prop for the Link */}
+            <Button asChild size="lg" className="gap-2 group">
+              <Link href="/login">
+                Access the Platform 
+                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </Button>
+          </div>
+        </section>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+        <section className="container mx-auto px-4 py-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold tracking-tight">How Our System Works</h2>
+            <p className="mt-2 text-muted-foreground">A revolutionary approach to data sharing.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <FeatureCard
+              icon={<UserCheck className="w-10 h-10 text-ring" />} // Using cyan (ring)
+              title="User-Centric Consent"
+              description="No data moves without explicit, cryptographic consent from the user for every single transaction. The user is always in control."
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+            <FeatureCard
+              icon={<ShieldCheck className="w-10 h-10" style={{color: "hsl(var(--chart-1))"}} />} // Using green
+              title="Zero Data Liability"
+              description="We never see or store sensitive data. It flows directly from the provider to the requester, drastically reducing your security burden and liability."
+            />
+            <FeatureCard
+              icon={<GitBranchPlus className="w-10 h-10" style={{color: "hsl(var(--chart-2))"}} />} // Using orange
+              title="Scalable & Asynchronous"
+              description="Our role as a coordinator prevents bottlenecks. The system remains fast and reliable, even as the number of partners and requests grows."
+            />
+          </div>
+        </section>
+
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      <Footer />
+    </>
+  );
+}
+
+// UPDATED: This component now uses the official Shadcn Card component for consistency
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="mb-4">{icon}</div>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-muted-foreground">{description}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t mt-20">
+      <div className="container mx-auto py-6 text-center text-sm text-muted-foreground">
+        <p>© {new Date().getFullYear()} ASCII Technologies. All rights reserved.</p>
+      </div>
+    </footer>
   );
 }

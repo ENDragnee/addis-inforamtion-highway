@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcrypt';
-import { Institution } from '@prisma/client';
+import { Institution } from '@/generated/prisma';
 
 export async function authenticateInstitution(request: NextRequest): Promise<{ institution: Institution | null, error: NextResponse | null }> {
   const clientId = request.headers.get('x-client-id');

@@ -1,26 +1,96 @@
 @import "tailwindcss";
 
+/* Theme Variables - Default (Light Mode) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: 60 30% 96%; /* #f8f8f2 - Dracula Foreground as light bg */
+  --foreground: 231 15% 18%; /* #282a36 - Dracula Background as light fg */
+  --card: 0 0% 100%;
+  --card-foreground: 231 15% 18%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 231 15% 18%;
+  --primary: 271 76% 77%; /* #bd93f7 - Purple */
+  --primary-foreground: 231 15% 18%;
+  --secondary: 60 13% 90%;
+  --secondary-foreground: 231 15% 18%;
+  --muted: 60 13% 90%;
+  --muted-foreground: 225 27% 51%; /* #6272a4 - Comment */
+  --accent: 328 100% 74%; /* #ff79c6 - Pink */
+  --accent-foreground: 231 15% 18%;
+  --destructive: 0 100% 67%; /* #ff5555 - Red */
+  --destructive-foreground: 60 30% 96%;
+  --border: 240 13% 89%;
+  --input: 240 13% 89%; /* Same as border for light mode */
+  --ring: 193 97% 77%; /* #8be9fd - Cyan for focus */
+  --radius: 0.5rem;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif; /* Added Geist font */
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace; /* Added Geist font */
 }
 
+/* 
+  THE CRUCIAL FIX:
+  We replace `@media (prefers-color-scheme: dark)` with `.dark`.
+  Now, these variables will be applied whenever the <html> tag has class="dark",
+  which is exactly what the next-themes library does.
+*/
+.dark {
+  --background: 231 15% 18%; /* #282a36 */
+  --foreground: 60 30% 96%; /* #f8f8f2 */
+  --card: 232 14% 31%; /* #44475a */
+  --card-foreground: 60 30% 96%;
+  --popover: 232 14% 31%;
+  --popover-foreground: 60 30% 96%;
+  --primary: 271 76% 77%; /* Purple */
+  --primary-foreground: 231 15% 18%;
+  --secondary: 232 15% 15%; /* Slightly darker bg */
+  --secondary-foreground: 60 30% 96%;
+  --muted: 232 14% 31%;
+  --muted-foreground: 225 27% 51%; /* Comment */
+  --accent: 328 100% 74%; /* Pink */
+  --accent-foreground: 231 15% 18%;
+  --destructive: 0 100% 67%; /* Red */
+  --destructive-foreground: 60 30% 96%;
+  --border: 232 14% 31%;
+  --input: 232 14% 31%;
+  --ring: 193 97% 77%; /* Cyan */
+}
+
+/* @theme inline block remains the same, mapping variables to Tailwind's color names */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --radius: var(--radius);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Base Styles */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  font-feature-settings: "rlig" 1, "calt" 1;
+  transition: background-color 0.2s, color 0.2s;
 }
+
+* {
+  border-color: var(--color-border);
+}
+
+/* Keep the rest of your file (utilities, custom styles) as is... */
