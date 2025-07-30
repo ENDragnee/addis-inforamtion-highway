@@ -74,6 +74,10 @@ Our company provides the **courier service itself**. We are the trusted transpor
 
 You can set up this project in one of two ways. Docker Compose is recommended for a consistent, isolated environment that "just works".
 
+### Default Super user email and password
+-   **Email:** `superuser@test.com`
+-   **Password:** `qazwsxedc`
+
 ### Prerequisites
 
 -   **Git:** To clone the repository.
