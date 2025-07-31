@@ -136,6 +136,7 @@ async function main() {
   console.log('👥 Creating End Users...');
   const userAlice = await prisma.user.create({
     data: {
+      hashedPassword: clientSecretHash,
       externalId: 'ext_alice_12345',
       verifaydaSub: 'sub_alice_abcdef',
     },
@@ -143,6 +144,7 @@ async function main() {
 
   const userBob = await prisma.user.create({
     data: {
+      hashedPassword: clientSecretHash,
       externalId: 'ext_bob_67890',
       verifaydaSub: 'sub_bob_ghijkl',
     },
