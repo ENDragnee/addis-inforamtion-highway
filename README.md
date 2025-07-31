@@ -65,8 +65,11 @@ Our company provides the **courier service itself**. We are the trusted transpor
 ## Members
 
 -   Mastwal Mesfin ([ENDragnee](https://github.com/ENDragnee))
+        email: [Mastwal Mesfin](mailto:mesfinmastwal@gmail.com)
 -   Kidus Goshu ([kidusgoshu](https://github.com/kidusgoshu))
+        email: [Kidus Goshu](mailto:kidusgoshu2be@gmail.com)
 -   Yeabsira Fikadu ([DeepBlue-dot](https://github.com/DeepBlue-dot))
+        email: [Yeabsira Fikadu](mailto:yeabsira710@gmail.com)
 
 ---
 
