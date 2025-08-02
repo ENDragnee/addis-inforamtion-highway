@@ -22,13 +22,12 @@ export const authOptions: NextAuthOptions = {
 
         const email = credentials.email.toLowerCase();
 
-        // 1. Check for SuperUser
+        // 1. Only check for SuperUser
         const superUser = await prisma.superUser.findUnique({
           where: { email },
         });
 
         if (superUser) {
-          // UPDATED (SuperUser check): Use the verifyPassword utility function
           const isPasswordValid = await verifyPassword(
             credentials.password,
             superUser.hashedPassword
@@ -40,29 +39,6 @@ export const authOptions: NextAuthOptions = {
               name: superUser.name,
               type: 'SUPER_USER',
               superUserRole: superUser.role,
-            };
-          }
-        }
-        
-        // 2. Check for InstitutionUser
-        const institutionUser = await prisma.institutionUser.findUnique({
-          where: { email },
-        });
-
-        if (institutionUser) {
-          // UPDATED (InstitutionUser check): Use the verifyPassword utility function
-          const isPasswordValid = await verifyPassword(
-            credentials.password,
-            institutionUser.hashedPassword
-          );
-          if (isPasswordValid) {
-            return {
-              id: institutionUser.id,
-              email: institutionUser.email,
-              name: institutionUser.name,
-              type: 'INSTITUTION_USER',
-              institutionId: institutionUser.institutionId,
-              institutionRole: institutionUser.role,
             };
           }
         }
@@ -78,9 +54,6 @@ export const authOptions: NextAuthOptions = {
         token.type = user.type;
         if (user.type === 'SUPER_USER') {
           token.superUserRole = user.superUserRole;
-        } else if (user.type === 'INSTITUTION_USER') {
-          token.institutionId = user.institutionId;
-          token.institutionRole = user.institutionRole;
         }
       }
       return token;
@@ -91,9 +64,6 @@ export const authOptions: NextAuthOptions = {
         session.user.type = token.type;
         if (token.type === 'SUPER_USER') {
           session.user.superUserRole = token.superUserRole;
-        } else if (token.type === 'INSTITUTION_USER') {
-          session.user.institutionId = token.institutionId;
-          session.user.institutionRole = token.institutionRole;
         }
       }
       return session;

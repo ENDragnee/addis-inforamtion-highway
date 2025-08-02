@@ -33,7 +33,7 @@ model InstitutionUser {
   institutionId String
   institution   Institution @relation(fields: [institutionId], references: [id])
 
-  role InstitutionUserRole @default(MEMBER)
+  role String // previously: InstitutionUserRole @default(MEMBER)
 
   @@index([institutionId])
 }
@@ -126,11 +126,6 @@ enum DataRequestStatus {
   COMPLETED
   FAILED
   EXPIRED
-}
-
-enum InstitutionUserRole {
-  ADMIN
-  MEMBER
 }
 
 enum RelationshipStatus {
