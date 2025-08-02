@@ -9,96 +9,99 @@ datasource db {
 }
 
 model Institution {
-  id        String @id @default(cuid())
-  name      String @unique 
-  users InstitutionUser[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  roleId String
-  role   Role   @relation(fields: [roleId], references: [id])
-  clientId String @unique @default(cuid())
+  id               String            @id @default(cuid())
+  name             String            @unique
+  users            InstitutionUser[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  roleId           String
+  role             Role              @relation(fields: [roleId], references: [id])
+  clientId         String            @unique @default(cuid())
   clientSecretHash String
-  publicKey String
-  apiEndpoint String
-  requestsMade DataRequest[] @relation("Requester")
-  requestsReceived DataRequest[] @relation("Provider")
+  publicKey        String
+  apiEndpoint      String
+  requestsMade     DataRequest[]     @relation("Requester")
+  requestsReceived DataRequest[]     @relation("Provider")
 }
 
 model InstitutionUser {
-  id              String   @id @default(cuid())
-  email           String   @unique
-  name            String
-  hashedPassword  String
-  
-  institutionId   String
-  institution     Institution @relation(fields: [institutionId], references: [id])
-  
-  role            InstitutionUserRole @default(MEMBER)
+  id             String @id @default(cuid())
+  email          String @unique
+  name           String
+  hashedPassword String
+
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+
+  role InstitutionUserRole @default(MEMBER)
 
   @@index([institutionId])
 }
 
 model Role {
-  id          String   @id @default(cuid())
-  name        String   @unique 
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  institutions      Institution[]
+  id                 String         @id @default(cuid())
+  name               String         @unique
+  description        String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  institutions       Institution[]
   requesterRelations Relationship[] @relation("RequesterRole")
   providerRelations  Relationship[] @relation("ProviderRole")
 }
 
 model Relationship {
-  id        String @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  status RelationshipStatus @default(PENDING)
+  id              String             @id @default(cuid())
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  status          RelationshipStatus @default(PENDING)
   requesterRoleId String
-  requesterRole   Role   @relation("RequesterRole", fields: [requesterRoleId], references: [id])
-  providerRoleId String
-  providerRole   Role   @relation("ProviderRole", fields: [providerRoleId], references: [id])
-  dataSchemaId String
-  dataSchema   DataSchema @relation(fields: [dataSchemaId], references: [id])
+  requesterRole   Role               @relation("RequesterRole", fields: [requesterRoleId], references: [id])
+  providerRoleId  String
+  providerRole    Role               @relation("ProviderRole", fields: [providerRoleId], references: [id])
+  dataSchemaId    String
+  dataSchema      DataSchema         @relation(fields: [dataSchemaId], references: [id])
+
   @@unique([requesterRoleId, providerRoleId, dataSchemaId])
 }
 
 model User {
-  id        String @id @default(cuid())
-  externalId String @unique
-  verifaydaSub String? @unique
+  id              String        @id @default(cuid())
+  hashedPassword  String
+  externalId      String        @unique
+  verifaydaSub    String?       @unique
   devicePublicKey String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  dataRequests DataRequest[]
+  pushToken       String?       @unique
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  dataRequests    DataRequest[]
 }
 
 model DataSchema {
-  id          String   @id @default(cuid())
-  schemaId    String   @unique
-  description String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String         @id @default(cuid())
+  schemaId      String         @unique
+  description   String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   relationships Relationship[]
   dataRequests  DataRequest[]
 }
 
 model DataRequest {
-  id        String @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  requesterId String
-  requester   Institution @relation("Requester", fields: [requesterId], references: [id])
-  providerId String
-  provider   Institution @relation("Provider", fields: [providerId], references: [id])
-  dataOwnerId String
-  dataOwner   User   @relation(fields: [dataOwnerId], references: [id], onDelete: Cascade)
-  dataSchemaId String
-  dataSchema   DataSchema @relation(fields: [dataSchemaId], references: [id])
-  status DataRequestStatus @default(INITIATED)
-  consentTokenJti String? @unique
-  expiresAt DateTime
-  failureReason String?
+  id              String            @id @default(cuid())
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  requesterId     String
+  requester       Institution       @relation("Requester", fields: [requesterId], references: [id])
+  providerId      String
+  provider        Institution       @relation("Provider", fields: [providerId], references: [id])
+  dataOwnerId     String
+  dataOwner       User              @relation(fields: [dataOwnerId], references: [id], onDelete: Cascade)
+  dataSchemaId    String
+  dataSchema      DataSchema        @relation(fields: [dataSchemaId], references: [id])
+  status          DataRequestStatus @default(INITIATED)
+  consentTokenJti String?           @unique
+  expiresAt       DateTime
+  failureReason   String?
 }
 
 model SuperUser {
@@ -116,22 +119,22 @@ enum SuperUserRole {
 }
 
 enum DataRequestStatus {
-  INITIATED 
-  AWAITING_CONSENT 
-  APPROVED 
-  DENIED 
-  COMPLETED 
-  FAILED 
-  EXPIRED 
+  INITIATED
+  AWAITING_CONSENT
+  APPROVED
+  DENIED
+  COMPLETED
+  FAILED
+  EXPIRED
 }
 
 enum InstitutionUserRole {
-  ADMIN 
+  ADMIN
   MEMBER
 }
 
 enum RelationshipStatus {
-  PENDING  
+  PENDING
   ACTIVE
   REJECTED
   REVOKED
