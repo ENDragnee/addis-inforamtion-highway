@@ -3,6 +3,8 @@ import { z } from 'zod';
 import prisma from '@/lib/prisma'; // Make sure this path is correct
 import { authenticateInstitution } from '@/lib/m2m-auth'; // Make sure this path is correct
 
+
+
 // Zod schema for request body validation
 const createRequestSchema = z.object({
   // FIXED: The correct way to enforce a required string.
@@ -86,5 +88,82 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('Error creating data request:', err);
     return NextResponse.json({ error: 'An internal server error occurred' }, { status: 500 });
+  }
+}
+
+// File: /app/api/v1/requests/outgoing/route.ts
+
+// Shared query param schema
+const querySchema = z.object({
+  status: z.string().optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(10),
+  fromDate: z.string().datetime({ offset: true }).optional(),
+  toDate: z.string().datetime({ offset: true }).optional(),
+});
+
+export async function GET(request: NextRequest) {
+  // 1. Auth
+  const { institution: requester, error: authError } = await authenticateInstitution(request);
+  if (authError || !requester) {
+    return new NextResponse('Authentication failed', { status: 401 });
+  }
+
+  // 2. Parse query params
+  const { searchParams } = new URL(request.url);
+  const parseResult = querySchema.safeParse(Object.fromEntries(searchParams));
+  if (!parseResult.success) {
+    return NextResponse.json(
+      { error: 'Invalid query parameters', details: parseResult.error.format() },
+      { status: 400 }
+    );
+  }
+
+  const { status, page, limit, fromDate, toDate } = parseResult.data;
+
+  // 3. Prisma filter
+  const where: any = {
+    requesterId: requester.id,
+  };
+
+  if (status) {
+    where.status = status;
+  }
+
+  if (fromDate || toDate) {
+    where.createdAt = {};
+    if (fromDate) where.createdAt.gte = new Date(fromDate);
+    if (toDate) where.createdAt.lte = new Date(toDate);
+  }
+
+  // 4. Query DB
+  try {
+    const [requests, totalCount] = await Promise.all([
+      prisma.dataRequest.findMany({
+        where,
+        include: {
+          provider: true,
+          dataOwner: true,
+          dataSchema: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.dataRequest.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      data: requests,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
