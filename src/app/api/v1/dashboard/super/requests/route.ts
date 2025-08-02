@@ -1,75 +1,63 @@
-// app/api/requests/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  
-  if (!session || session.user.type !== 'SUPER_USER') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(req.url);
-  const status = searchParams.get('status'); // optional
-  const fromDate = searchParams.get('fromDate'); // optional ISO string
-  const toDate = searchParams.get('toDate');     // optional ISO string
-
-  const filters: any = {};
-
-  if (status) {
-    filters.status = status;
-  }
-
-  if (fromDate || toDate) {
-    filters.createdAt = {};
-    if (fromDate) filters.createdAt.gte = new Date(fromDate);
-    if (toDate) filters.createdAt.lte = new Date(toDate);
-  }
-
-  const requests = await prisma.dataRequest.findMany({
-    where: filters,
-    include: {
-      requester: true,
-      provider: true,
-      dataOwner: true,
-      dataSchema: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  return NextResponse.json({ requests });
-}
-
-export async function PATCH(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  
-  if (!session || session.user.type !== 'SUPER_USER') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const body = await req.json();
-  const { id, status } = body;
-
-  if (!id || !status) {
-    return NextResponse.json({ error: 'ID and status required' }, { status: 400 });
-  }
-
-  // Only allow manual status update to FAILED or EXPIRED
-  if (!['FAILED', 'EXPIRED'].includes(status)) {
-    return NextResponse.json({ error: 'Invalid status for manual update' }, { status: 400 });
-  }
-
   try {
-    const updatedRequest = await prisma.dataRequest.update({
-      where: { id },
-      data: { status },
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.type !== 'SUPER_USER') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get('status') || undefined;
+    const institutionId = searchParams.get('institutionId') || undefined;
+    const schemaId = searchParams.get('schemaId') || undefined;
+    const dateFrom = searchParams.get('from') || undefined;
+    const dateTo = searchParams.get('to') || undefined;
+
+    const where: any = {};
+    if (status) where.status = status;
+    if (institutionId) {
+      where.OR = [
+        { requesterId: institutionId },
+        { providerId: institutionId },
+      ];
+    }
+    if (schemaId) where.dataSchemaId = schemaId;
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+      if (dateTo) where.createdAt.lte = new Date(dateTo);
+    }
+
+    const dataRequests = await prisma.dataRequest.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        requester: {
+          select: { id: true, name: true },
+        },
+        provider: {
+          select: { id: true, name: true },
+        },
+        dataSchema: {
+          select: { id: true, schemaId: true },
+        },
+        dataOwner: {
+          select: { id: true, externalId: true },
+        },
+      },
     });
-    return NextResponse.json({ request: updatedRequest });
+
+    return NextResponse.json({ data: dataRequests }, { status: 200 });
   } catch (error) {
-    console.error('Failed to update request status:', error);
-    return NextResponse.json({ error: 'Failed to update request' }, { status: 500 });
+    console.error('[GET /api/dataRequests] Error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
