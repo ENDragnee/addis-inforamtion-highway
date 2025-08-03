@@ -1,3 +1,4 @@
+//@/app/api/v1/mobile/users/register-push-token/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import * as jose from 'jose';
 import prisma from '@/lib/prisma';

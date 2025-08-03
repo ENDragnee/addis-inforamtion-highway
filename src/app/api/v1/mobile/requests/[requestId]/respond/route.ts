@@ -1,3 +1,4 @@
+//@/app/api/v1/mobile/requests/[requestId]/respond/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import * as jose from 'jose';
 import prisma from '@/lib/prisma';
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       // 1. Verify the consent token signature using the user's stored public key
-      const publicKeyJwk = JSON.parse(dataRequest.dataOwner.devicePublicKey!);
+      const publicKeyJwk = JSON.parse(dataRequest.dataOwner.fcmToken!);
       const publicKey = await jose.importJWK(publicKeyJwk, 'ES256');
       const { payload } = await jose.jwtVerify(consentToken, publicKey);
       

@@ -1,63 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
 import { authenticateInstitution } from '@/lib/m2m-auth';
+import prisma from '@/lib/prisma';
 import * as jose from 'jose';
 
-interface RouteContext {
-  params: { requestId: string };
+// Helper to generate the short-lived access token for the Provider API.
+// This function is correct and needs no changes.
+async function createProviderAccessToken(
+  requesterId: string,
+  providerId: string,
+  dataOwnerId: string,
+  schemaId: string
+): Promise<string> {
+  const secret = process.env.PROVIDER_TOKEN_SECRET;
+  if (!secret) {
+    throw new Error('PROVIDER_TOKEN_SECRET is not set in environment variables.');
+  }
+  const secretKey = new TextEncoder().encode(secret);
+
+  return await new jose.SignJWT({
+    requesterId,
+    providerId,
+    dataOwnerId,
+    schemaId,
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuer('urn:addis-information-highway:broker')
+    .setAudience('urn:addis-information-highway:provider')
+    .setExpirationTime('5m') // This token should be very short-lived
+    .sign(secretKey);
 }
 
-export async function GET(request: NextRequest, { params }: RouteContext) {
-  const { institution, error: authError } = await authenticateInstitution(request);
-  if (authError || !institution) return authError ?? new NextResponse('Authentication failed', { status: 401 });
-
+export async function GET(request: NextRequest, { params }: { params: { requestId: string } }) {
   try {
+    // 1. Authenticate the polling institution. Only the original requester can poll.
+    const { institution: requester, error: authError } = await authenticateInstitution(request);
+    if (authError || !requester) {
+      return authError ?? new NextResponse('Authentication failed', { status: 401 });
+    }
     const { requestId } = params;
-    const dataRequest = await prisma.dataRequest.findUnique({
-      where: { id: requestId },
-      include: { provider: true, dataSchema: true },
+
+    // 2. Find the data request and verify ownership.
+    // CORRECTED: Use `select` to fetch exactly the fields we need. This is more efficient
+    // and solves the type mismatch bug.
+    const dataRequest = await prisma.dataRequest.findFirst({
+      where: {
+        id: requestId,
+        requesterId: requester.id,
+      },
+      select: {
+        status: true,
+        failureReason: true,
+        dataOwnerId: true,
+        dataSchemaId: true,
+        providerId: true, // <-- Get the providerId string directly
+        provider: {
+          select: { apiEndpoint: true }, // <-- Get the provider's endpoint from the relation
+        },
+      },
     });
 
-    if (!dataRequest) return NextResponse.json({ error: 'Request not found' }, { status: 404 });
-    if (dataRequest.requesterId !== institution.id) return NextResponse.json({ error: 'Not authorized for this request' }, { status: 403 });
+    if (!dataRequest) {
+      return NextResponse.json({ error: 'Request not found or you are not the requester.' }, { status: 404 });
+    }
 
-    if (dataRequest.status === 'APPROVED') {
-      if (!process.env.JWT_ACCESS_SECRET) {
-        throw new Error('JWT_ACCESS_SECRET is not set in environment variables.');
-      }
+    // 3. Return the current status of the request.
+    const { status, failureReason } = dataRequest;
 
-      // Generate a new, short-lived "Access Token" that the Provider will accept.
-      // This token proves that the middleman has validated the user's consent.
-      const secret = new TextEncoder().encode(process.env.JWT_ACCESS_SECRET);
-      const accessToken = await new jose.SignJWT({ 
-          requestId: dataRequest.id,
-          requesterId: dataRequest.requesterId,
-          providerId: dataRequest.providerId,
-          schemaId: dataRequest.dataSchema.schemaId,
-          fields: dataRequest.requestedFields, // Pass the fields the provider should return
-        })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt()
-        .setIssuer('urn:trustbroker:platform') // Your platform's identifier
-        .setAudience('urn:trustbroker:provider') // Intended for providers
-        .setExpirationTime('5m') // This token is only valid for 5 minutes
-        .sign(secret);
+    if (status === 'APPROVED') {
+      // If approved, generate the one-time access token for the provider's API
+      const accessToken = await createProviderAccessToken(
+        requester.id,
+        dataRequest.providerId, // <-- CORRECTED: Pass the providerId string
+        dataRequest.dataOwnerId,
+        dataRequest.dataSchemaId
+      );
 
       return NextResponse.json({
         status: 'APPROVED',
-        providerEndpoint: dataRequest.provider.apiEndpoint,
-        accessToken,
+        providerEndpoint: dataRequest.provider.apiEndpoint, // <-- CORRECTED: Access the endpoint
+        accessToken: accessToken,
       });
     }
 
-    // For all other statuses, just report the current status.
+    // For all other states, just return the status.
     return NextResponse.json({
-      status: dataRequest.status,
-      failureReason: dataRequest.failureReason,
+      status: status,
+      failureReason: failureReason,
     });
 
-  } catch (err) {
-    console.error('Error fetching request token:', err);
+  } catch (error) {
+    console.error(`Error polling for request status for ID ${params.requestId}:`, error);
     return NextResponse.json({ error: 'An internal server error occurred' }, { status: 500 });
   }
 }
