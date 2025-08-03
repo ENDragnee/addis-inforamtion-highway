@@ -1,28 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import prisma from '@/lib/prisma'; // Make sure this path is correct
-import { authenticateInstitution } from '@/lib/m2m-auth'; // Make sure this path is correct
+import prisma from '@/lib/prisma';
+import { authenticateInstitution } from '@/lib/m2m-auth';
+// IMPORT the new notification service
+import { sendConsentRequestNotification } from '@/lib/notification-service';
 
+<<<<<<< HEAD
 
 
 // Zod schema for request body validation
+=======
+>>>>>>> f8ccdb1 (test: tried to implement a raw verifayda auth, update: update on prisma schema, implemented firebase messaging)
 const createRequestSchema = z.object({
-  // FIXED: The correct way to enforce a required string.
   ownerExternalId: z.string().min(1, { message: "ownerExternalId is required" }),
   schemaId: z.string().min(1, { message: "schemaId is required" }),
-  
-  // FIXED: Chained .cuid() for format validation. A CUID is inherently non-empty.
   providerId: z.string().cuid({ message: "Invalid providerId format" }),
-
   expiresIn: z.number().int().positive().optional().default(3600),
 });
 
 export async function POST(request: NextRequest) {
-  // 1. Authenticate the Requester Institution
   const { institution: requester, error: authError } = await authenticateInstitution(request);
   if (authError || !requester) return authError ?? new NextResponse('Authentication failed', { status: 401 });
 
-  // 2. Validate Request Body
   const body = await request.json();
   const validation = createRequestSchema.safeParse(body);
   if (!validation.success) {
@@ -31,38 +30,35 @@ export async function POST(request: NextRequest) {
   const { ownerExternalId, schemaId, providerId, expiresIn } = validation.data;
   
   try {
-    // 3. Perform RBAC check using the Relationship "Rulebook"
-    const [provider, schema] = await Promise.all([
-      prisma.institution.findUnique({ where: { id: providerId } }),
-      prisma.dataSchema.findUnique({ where: { schemaId } }),
+    const [provider, schema, relationship] = await Promise.all([
+      // Use select to only fetch the data we need
+      prisma.institution.findUnique({ where: { id: providerId }, select: { id: true, name: true } }),
+      prisma.dataSchema.findUnique({ where: { schemaId }, select: { id: true, description: true } }),
+      prisma.relationship.findFirst({
+        where: {
+          requesterRole: { institutions: { some: { id: requester.id } } },
+          providerRole: { institutions: { some: { id: providerId } } },
+          dataSchema: { schemaId },
+          status: 'ACTIVE',
+        },
+      }),
     ]);
     
     if (!provider || !schema) {
       return NextResponse.json({ error: 'Invalid providerId or schemaId' }, { status: 404 });
     }
-
-    // This query now works because you fixed the schema in Step 1.
-    const relationship = await prisma.relationship.findFirst({
-      where: {
-        requesterRole: { institutions: { some: { id: requester.id } } },
-        providerRole: { institutions: { some: { id: providerId } } },
-        dataSchema: { schemaId },
-        status: 'ACTIVE',
-      },
-    });
-    
     if (!relationship) {
-      return NextResponse.json({ error: 'This request is not permitted by the established rules, or the relationship is not active' }, { status: 403 });
+      return NextResponse.json({ error: 'This request is not permitted by the established rules', status: 403 });
     }
 
-    // 4. Find or create the data owner (User)
+    // UPDATED: Select the fcmToken when finding the user
     const dataOwner = await prisma.user.upsert({
       where: { externalId: ownerExternalId },
       update: {},
       create: { externalId: ownerExternalId },
+      select: { id: true, fcmToken: true }
     });
     
-    // 5. Create the DataRequest record
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
     const dataRequest = await prisma.dataRequest.create({
       data: {
@@ -75,10 +71,26 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // TODO: Trigger notification to the user's wallet app
-    console.log(`Notification for user: ${dataOwner.id}, request: ${dataRequest.id}`);
+    // --- INTEGRATED NOTIFICATION LOGIC ---
+    if (dataOwner.fcmToken) {
+      // We send the notification but DON'T await it or block the response.
+      // The API request should succeed even if the push notification fails.
+      // This is known as "fire and forget".
+      sendConsentRequestNotification({
+        fcmToken: dataOwner.fcmToken,
+        requestId: dataRequest.id,
+        requesterName: requester.name,
+        providerName: provider.name,
+        schemaName: schema.description,
+      }).catch(err => {
+        // Log the error for monitoring, but don't fail the API call.
+        console.error(`[Non-blocking Error] Failed to send push notification for request ${dataRequest.id}:`, err);
+      });
+    } else {
+      console.warn(`User with externalId ${ownerExternalId} does not have an FCM token. Cannot send push notification.`);
+    }
 
-    // 6. Respond with 'Accepted'
+    // Respond to the client immediately
     return NextResponse.json({
       requestId: dataRequest.id,
       status: dataRequest.status,

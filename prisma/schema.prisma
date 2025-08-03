@@ -53,7 +53,7 @@ model User {
   id              String        @id @default(cuid())
   externalId      String        @unique
   verifaydaSub    String?       @unique
-  devicePublicKey String?
+  fcmToken        String?       @unique 
   pushToken       String?       @unique
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
