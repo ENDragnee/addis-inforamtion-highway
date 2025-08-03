@@ -4,13 +4,7 @@ import prisma from '@/lib/prisma';
 import { authenticateInstitution } from '@/lib/m2m-auth';
 // IMPORT the new notification service
 import { sendConsentRequestNotification } from '@/lib/notification-service';
-
-<<<<<<< HEAD
-
-
 // Zod schema for request body validation
-=======
->>>>>>> f8ccdb1 (test: tried to implement a raw verifayda auth, update: update on prisma schema, implemented firebase messaging)
 const createRequestSchema = z.object({
   ownerExternalId: z.string().min(1, { message: "ownerExternalId is required" }),
   schemaId: z.string().min(1, { message: "schemaId is required" }),
