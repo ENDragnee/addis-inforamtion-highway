@@ -1,39 +1,71 @@
-// lib/m2m-auth.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextApiRequest, NextApiResponse, NextApiHandler } from 'next';
 import prisma from '@/lib/prisma';
-import bcrypt from 'bcrypt';
-import { Institution } from '@/generated/prisma';
+import crypto from 'crypto';
 
-export async function authenticateInstitution(request: NextRequest): Promise<{ institution: Institution | null, error: NextResponse | null }> {
-  const clientId = request.headers.get('x-client-id');
-  const clientSecret = request.headers.get('x-client-secret');
-
-  if (!clientId || !clientSecret) {
-    return { 
-      institution: null, 
-      error: NextResponse.json({ error: 'Missing API credentials' }, { status: 401 }) 
-    };
+// Helper: recursively sort object keys
+function sortKeys(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(sortKeys);
+  } else if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj)
+      .sort()
+      .reduce((result: any, key: string) => {
+        result[key] = sortKeys(obj[key]);
+        return result;
+      }, {});
   }
+  return obj;
+}
 
-  const institution = await prisma.institution.findUnique({
-    where: { clientId },
-  });
+// Canonicalize JSON: minified with sorted keys
+function canonicalizeBody(body: any): string {
+  const sorted = sortKeys(body);
+  return JSON.stringify(sorted);
+}
 
-  if (!institution) {
-    return { 
-      institution: null, 
-      error: NextResponse.json({ error: 'Invalid client ID' }, { status: 401 }) 
-    };
-  }
+// Middleware wrapper to enforce m2m authentication
+export function withM2MAuth(handler: NextApiHandler) {
+  return async (req: NextApiRequest, res: NextApiResponse) => {
+    try {
+      const clientId = req.headers['client-id'] as string;
+      const signatureHeader = req.headers['signature'] as string;
 
-  const isSecretValid = await bcrypt.compare(clientSecret, institution.clientSecretHash);
+      if (!clientId || !signatureHeader) {
+        return res.status(401).json({ error: 'Missing Client-Id or Signature header' });
+      }
 
-  if (!isSecretValid) {
-    return { 
-      institution: null, 
-      error: NextResponse.json({ error: 'Invalid client secret' }, { status: 401 }) 
-    };
-  }
+      // Lookup institution by clientId
+      const institution = await prisma.institution.findUnique({
+        where: { clientId }
+      });
 
-  return { institution, error: null };
+      if (!institution) {
+        return res.status(401).json({ error: 'Invalid Client-Id' });
+      }
+
+      // Prepare canonical payload for verification
+      const body = req.body;
+      const payload = canonicalizeBody(body);
+      const verifier = crypto.createVerify('SHA256');
+      verifier.update(payload);
+      verifier.end();
+
+      const signature = Buffer.from(signatureHeader, 'base64');
+      const pubKey = institution.publicKey;
+      const valid = verifier.verify(pubKey, signature);
+
+      if (!valid) {
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+
+      // Attach institution to request for downstream handlers
+      (req as any).institution = institution;
+
+      // Invoke the actual handler
+      return await handler(req, res);
+    } catch (err) {
+      console.error('M2M auth error:', err);
+      return res.status(500).json({ error: 'Internal authentication error' });
+    }
+  };
 }
