@@ -7,9 +7,9 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🧹 Cleaning database...');
   // Delete in reverse order of creation to avoid foreign key constraints
+  await prisma.dataRequestSignature.deleteMany();
   await prisma.dataRequest.deleteMany();
   await prisma.relationship.deleteMany();
-  await prisma.institutionUser.deleteMany();
   await prisma.institution.deleteMany();
   await prisma.role.deleteMany();
   await prisma.dataSchema.deleteMany();
@@ -21,8 +21,7 @@ async function main() {
 
   // --- Hashed Passwords ---
   const superUserPassword = await hashPassword('superadmin123');
-  const institutionUserPassword = await hashPassword('password123');
-  const clientSecretHash = await hashPassword('super-secret-client-secret');
+  const clientPublicKey = '-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----';
 
   // 1. --- Super User ---
   console.log('👤 Creating Super User...');
@@ -84,8 +83,7 @@ async function main() {
     data: {
       name: 'Verifayda Bank',
       roleId: bankRole.id,
-      clientSecretHash: clientSecretHash,
-      publicKey: '-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----',
+      publicKey: clientPublicKey,
       apiEndpoint: 'https://api.verifaydabank.com/v1',
     },
   });
@@ -94,49 +92,27 @@ async function main() {
     data: {
       name: 'National Identity Agency',
       roleId: govRole.id,
-      clientSecretHash: await hashPassword('another-secret-123'),
-      publicKey: '-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----',
+      publicKey: clientPublicKey,
       apiEndpoint: 'https://api.nia.gov/v1',
     },
   });
-  
+
   const telcoInstitution = await prisma.institution.create({
     data: {
       name: 'ConnectaTel',
       roleId: telcoRole.id,
-      clientSecretHash: await hashPassword('telco-secret-456'),
-      publicKey: '-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----',
+      publicKey: clientPublicKey,
       apiEndpoint: 'https://api.connectatel.com/v1',
     },
   });
 
   // 5. --- Institution Users ---
-  console.log('🧑‍💼 Creating Institution Users...');
-  await prisma.institutionUser.create({
-    data: {
-      email: 'admin@verifaydabank.com',
-      name: 'Bank Admin',
-      hashedPassword: institutionUserPassword,
-      institutionId: bankInstitution.id,
-      role: 'ADMIN',
-    },
-  });
-
-  await prisma.institutionUser.create({
-    data: {
-      email: 'officer@nia.gov',
-      name: 'Gov Officer',
-      hashedPassword: institutionUserPassword,
-      institutionId: govInstitution.id,
-      role: 'ADMIN',
-    },
-  });
+  // Skipped: institutionUser model not present in new schema
 
   // 6. --- End Users (Data Owners) ---
   console.log('👥 Creating End Users...');
   const userAlice = await prisma.user.create({
     data: {
-      hashedPassword: clientSecretHash,
       externalId: 'ext_alice_12345',
       verifaydaSub: 'sub_alice_abcdef',
     },
@@ -144,7 +120,6 @@ async function main() {
 
   const userBob = await prisma.user.create({
     data: {
-      hashedPassword: clientSecretHash,
       externalId: 'ext_bob_67890',
       verifaydaSub: 'sub_bob_ghijkl',
     },
@@ -153,7 +128,7 @@ async function main() {
   // 7. --- Relationships ---
   console.log('🤝 Creating Relationships...');
   // Bank can request KYC data from Government
-  await prisma.relationship.create({
+  const rel1 = await prisma.relationship.create({
     data: {
       requesterRoleId: bankRole.id,
       providerRoleId: govRole.id,
@@ -162,7 +137,7 @@ async function main() {
     },
   });
   // Bank can request Address data from Telecommunications
-  await prisma.relationship.create({
+  const rel2 = await prisma.relationship.create({
     data: {
       requesterRoleId: bankRole.id,
       providerRoleId: telcoRole.id,
@@ -183,6 +158,7 @@ async function main() {
       providerId: govInstitution.id,
       dataOwnerId: userAlice.id,
       dataSchemaId: kycSchema.id,
+      relationshipId: rel1.id,
       status: 'COMPLETED',
       expiresAt: thirtyDaysFromNow,
     },
@@ -195,18 +171,20 @@ async function main() {
       providerId: telcoInstitution.id,
       dataOwnerId: userBob.id,
       dataSchemaId: addressSchema.id,
+      relationshipId: rel2.id,
       status: 'AWAITING_CONSENT',
       expiresAt: thirtyDaysFromNow,
     },
   });
   
   // A failed request
-   await prisma.dataRequest.create({
+  await prisma.dataRequest.create({
     data: {
       requesterId: bankInstitution.id,
       providerId: govInstitution.id,
       dataOwnerId: userBob.id,
       dataSchemaId: kycSchema.id,
+      relationshipId: rel1.id,
       status: 'FAILED',
       failureReason: 'User data not found at provider.',
       expiresAt: thirtyDaysFromNow,
