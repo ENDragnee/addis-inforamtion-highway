@@ -3,10 +3,8 @@ import prisma from "@/lib/prisma";
 import { canonicalizeBody, withM2MAuth } from "@/lib/m2m-auth";
 import { SignatureType } from "@/types/DataRequest";
 import {
-  signPayload,
-  verifyLocalSignature,
   verifySignature,
-} from "@/lib/utils";
+} from "@/lib/crypto";
 import { Institution } from "@/generated/prisma/client";
 
 // POST /api/v1/requests/[requestId]/requester-signature

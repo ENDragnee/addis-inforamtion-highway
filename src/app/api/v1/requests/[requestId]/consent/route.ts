@@ -2,9 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
-import * as jose from "jose";
-import { sign } from "crypto";
-import { signPayload } from "@/lib/utils";
+import { signPayload } from "@/lib/crypto";
 
 export async function POST(
   request: NextRequest,

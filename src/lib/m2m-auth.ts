@@ -1,7 +1,6 @@
 import { NextApiRequest, NextApiResponse, NextApiHandler } from 'next';
 import prisma from '@/lib/prisma';
-import crypto from 'crypto';
-import { verifySignature } from './utils';
+import { verifySignature } from './crypto';
 
 // Helper: recursively sort object keys
 function sortKeys(obj: any): any {
@@ -44,13 +43,16 @@ export function withM2MAuth(handler: NextApiHandler) {
         return res.status(401).json({ error: 'Invalid Client-Id' });
       }
 
-      const valid = verifySignature(req.body,signatureHeader, institution.publicKey);
+      const valid = verifySignature(
+        institution.clientId,
+        signatureHeader,
+        institution.publicKey
+      );
 
       if (!valid) {
         return res.status(401).json({ error: 'Invalid signature' });
       }
 
-      // Attach institution to request for downstream handlers
       (req as any).institution = institution;
 
       // Invoke the actual handler

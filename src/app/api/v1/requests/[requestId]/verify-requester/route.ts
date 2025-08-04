@@ -2,14 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { canonicalizeBody, withM2MAuth } from "@/lib/m2m-auth";
 import { SignatureType } from "@/types/DataRequest";
-import {
-  signPayload,
-  verifyLocalSignature,
-  verifySignature,
-} from "@/lib/utils";
 import { Institution } from "@/generated/prisma/client";
-import crypto from "crypto";
-import { da } from "zod/v4/locales";
+import { verifyLocalSignature, verifySignature } from "@/lib/crypto";
 
 // POST /api/v1/requests/[requestId]/verify-requester
 export const POST = withM2MAuth(async (req: any, res: any) => {

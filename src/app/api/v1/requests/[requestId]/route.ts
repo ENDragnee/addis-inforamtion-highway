@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { withM2MAuth } from "@/lib/m2m-auth";
 import { SignatureType } from "@/types/DataRequest";
-import { signPayload } from "@/lib/utils";
 import { Institution } from "@/generated/prisma/client";
 
 // POST /api/v1/requests/[requestId]
