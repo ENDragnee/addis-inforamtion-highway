@@ -44,31 +44,7 @@ export async function listDataRequests(filter: Partial<{
   });
 }
 
-// Move DataRequest to a new status (enforces state machine rules)
-export async function transitionDataRequestStatus(id: string, newStatus: DataRequestStatus, failureReason?: string) {
-  const dataRequest = await prisma.dataRequest.findUnique({ where: { id } });
-  if (!dataRequest) throw new Error('DataRequest not found');
-  // State machine rules (example)
-  const validTransitions: Record<DataRequestStatus, DataRequestStatus[]> = {
-    INITIATED: ['AWAITING_CONSENT', 'FAILED'],
-    AWAITING_CONSENT: ['APPROVED', 'DENIED', 'FAILED'],
-    APPROVED: ['COMPLETED', 'FAILED'],
-    DENIED: [],
-    COMPLETED: [],
-    FAILED: [],
-    EXPIRED: [],
-  };
-  if (!validTransitions[dataRequest.status].includes(newStatus)) {
-    throw new Error(`Invalid status transition from ${dataRequest.status} to ${newStatus}`);
-  }
-  return prisma.dataRequest.update({
-    where: { id },
-    data: {
-      status: newStatus,
-      ...(failureReason ? { failureReason } : {}),
-    },
-  });
-}
+
 
 // Check and expire DataRequests past their expiry
 export async function expireStaleDataRequests() {

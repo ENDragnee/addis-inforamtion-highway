@@ -66,6 +66,8 @@ export const POST = withM2MAuth(async (req: any, res: any) => {
       },
     });
 
+    // 7. send a push notification to the user
+
     // 6. Return response
     return res.status(201).json({
       requestId: dataRequest.id,

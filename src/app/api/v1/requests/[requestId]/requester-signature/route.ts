@@ -98,6 +98,8 @@ export const POST = withM2MAuth(async (req: any, res: any) => {
       data: { status: "COMPLETED" },
     });
 
+    // 8.5 send a push notification to the user 
+
     // 9. Return response
     return NextResponse.json({
         requestId: dataRequest.id,
