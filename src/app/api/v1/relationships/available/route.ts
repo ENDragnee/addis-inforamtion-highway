@@ -1,68 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authenticateInstitution } from '@/lib/m2m-auth';
-import { z } from 'zod';
+import { withM2MAuth } from '@/lib/m2m-auth';
+import { stat } from 'fs';
+import { da } from 'zod/v4/locales';
 
-const querySchema = z.object({
-  page: z.coerce.number().int().positive().optional().default(1),
-  limit: z.coerce.number().int().positive().max(100).optional().default(10),
-});
+// GET /api/v1/relationships/available
 
-export async function GET(request: NextRequest) {
-  const { institution, error } = await authenticateInstitution(request);
-  if (error || !institution) {
-    return new NextResponse('Authentication failed', { status: 401 });
-  }
+export const GET = withM2MAuth(async (req: any, res: any) => {
+  try {
+    const institutionId = req.institution.id;
+    const institution = await prisma.institution.findUnique({
+      where: { id: institutionId },
+      include: {  
+        role: true,
+      }});
+    if (!institution) {
+      return res.status(404).json({ error: 'Institution not found' });
+    }
 
-  const { searchParams } = new URL(request.url);
-  const parse = querySchema.safeParse(Object.fromEntries(searchParams));
-  if (!parse.success) {
-    return NextResponse.json(
-      { error: 'Invalid query', details: parse.error.format() },
-      { status: 400 }
-    );
-  }
-
-  const { page, limit } = parse.data;
-
-  // Find requester roles for this institution
-  const roles = await prisma.role.findMany({
-    where: {
-      institutions: {
-        some: { id: institution.id },
+    const relationships = await prisma.relationship.findMany({
+      where: {
+        requesterRoleId: institution.role.id,
+        status: 'ACTIVE',
       },
-    },
-    select: { id: true },
-  });
-  const requesterRoleIds = roles.map(r => r.id);
+      include: {
+        providerRole: true,
+        dataSchema: true,
+      }});
 
-  const where = {
-    requesterRoleId: { in: requesterRoleIds },
-    status: { equals: 'ACTIVE' as any },
-  };
+    return res.status(200).json({
+      relationships: relationships.map(rel => ({
+        id: rel.id,
+        status: rel.status,
+        providerRole: {
+          id: rel.providerRole.id, 
+          name: rel.providerRole.name,
+          description: rel.providerRole.description,
+        },
+        dataSchema:  {
+          id: rel.dataSchema.id,
+          description: rel.dataSchema.description,
+          schemaId: rel.dataSchema.schemaId,
+        },
+      })),
+    });
 
-  // Get schemas through active relationships
-  const [relationships, totalCount] = await Promise.all([
-    prisma.relationship.findMany({
-      where,
-      include: { dataSchema: true },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.relationship.count({ where }),
-  ]);
-
-  // Return unique schemas only (optional)
-  const schemas = relationships.map(r => r.dataSchema);
-
-  return NextResponse.json({
-    data: schemas,
-    pagination: {
-      page,
-      limit,
-      total: totalCount,
-      totalPages: Math.ceil(totalCount / limit),
-    },
-  });
-}
+      
+  } catch (error) {
+    console.error("Error in POST handler:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
