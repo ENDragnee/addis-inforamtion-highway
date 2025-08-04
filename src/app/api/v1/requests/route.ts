@@ -16,6 +16,7 @@ export const POST = withM2MAuth(async (req: any, res: any) => {
       dataSchemaId,
       relationshipId,
       expiresAt,
+      signature
     } = body;
 
     // 1. requesterId must match authenticated institution
@@ -61,7 +62,7 @@ export const POST = withM2MAuth(async (req: any, res: any) => {
       data: {
         dataRequestId: dataRequest.id,
         type: SignatureType.REQUESTER,
-        signature: req.headers['signature'],
+        signature: signature,
       },
     });
 

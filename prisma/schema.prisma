@@ -124,6 +124,8 @@ enum SuperUserRole {
 enum DataRequestStatus {
   INITIATED
   AWAITING_CONSENT
+  VERIFIED
+  DELIVERED
   APPROVED
   DENIED
   COMPLETED

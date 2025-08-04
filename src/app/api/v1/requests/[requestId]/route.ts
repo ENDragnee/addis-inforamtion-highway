@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { withM2MAuth } from "@/lib/m2m-auth";
 import { SignatureType } from "@/types/DataRequest";
-import { Institution } from "@/types/Institution";
 import { signPayload } from "@/lib/utils";
-
+import { Institution } from "@/generated/prisma/client";
 
 // POST /api/v1/requests/[requestId]
 export const GET = withM2MAuth(async (req: any, res: any) => {
@@ -14,7 +13,7 @@ export const GET = withM2MAuth(async (req: any, res: any) => {
 
     const dataRequest = await prisma.dataRequest.findUnique({
       where: { id: requestId },
-      include: { provider: true },
+      include: { provider: true, signatures: true },
     });
     if (!dataRequest) {
       return res.status(404).json({ error: "DataRequest not found" });
@@ -33,44 +32,21 @@ export const GET = withM2MAuth(async (req: any, res: any) => {
         status: dataRequest.status,
       });
     }
+    const platformSignature = dataRequest.signatures.find(
+        (sig) => sig.type === SignatureType.PLATFORM
+      );
 
     if (
       dataRequest.consentTokenJti &&
       dataRequest.expiresAt > new Date() &&
-      dataRequest.status === "APPROVED"
+      dataRequest.status === "APPROVED" &&
+      platformSignature
     ) {
-      // Sign the data request
-      const payload = {
-        requestId: dataRequest.id,
-        requesterId: dataRequest.requesterId,
-        providerId: dataRequest.providerId,
-        dataOwnerId: dataRequest.dataOwnerId,
-        relationshipId: dataRequest.relationshipId,
-        issuedAt: new Date().toISOString(),
-        expiresAt: dataRequest.expiresAt.toISOString(),
-      };
-
-      let signatureRow = await prisma.dataRequestSignature.findFirst({
-        where: {
-          dataRequestId: dataRequest.id,
-          type: SignatureType.PLATFORM,
-        },
-      });
-
-      if (!signatureRow) {
-        const signature = await signPayload(payload);
-        signatureRow = await prisma.dataRequestSignature.create({
-          data: {
-            dataRequestId: dataRequest.id,
-            type: SignatureType.PLATFORM,
-            signature: signature,
-          },
-        });
-      }
 
       return NextResponse.json({
         requestId: dataRequest.id,
         status: dataRequest.status,
+        platformSignature: platformSignature.signature,
         providerEndpoint: dataRequest.provider.apiEndpoint,
       });
     }

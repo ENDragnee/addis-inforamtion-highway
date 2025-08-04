@@ -16,7 +16,7 @@ export function signPayload(payload: object) {
   return signer.sign(privateKeyPem, 'base64');
 }
 
-export function verifySignature(payload: object, signature: string) {
+export function verifyLocalSignature(payload: object, signature: string) {
   const canonical = JSON.stringify(payload, Object.keys(payload).sort());
   const verifier = crypto.createVerify('RSA-SHA256');
   verifier.update(canonical);
@@ -24,3 +24,13 @@ export function verifySignature(payload: object, signature: string) {
   const publicKeyPem = Buffer.from(process.env.SYSTEM_PUBLIC_KEY_B64!, 'base64').toString('utf8');
   return verifier.verify(publicKeyPem, signature, 'base64');
 }
+
+export function verifySignature(payload: object, signature: string, publicKey: string) {
+  const canonical = JSON.stringify(payload, Object.keys(payload).sort());
+  const verifier = crypto.createVerify('RSA-SHA256');
+  verifier.update(canonical);
+  verifier.end();
+  const publicKeyPem = Buffer.from(publicKey, 'base64').toString('utf8');
+  return verifier.verify(publicKeyPem, signature, 'base64');
+}
+

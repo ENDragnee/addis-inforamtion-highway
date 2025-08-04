@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse, NextApiHandler } from 'next';
 import prisma from '@/lib/prisma';
 import crypto from 'crypto';
+import { verifySignature } from './utils';
 
 // Helper: recursively sort object keys
 function sortKeys(obj: any): any {
@@ -18,7 +19,7 @@ function sortKeys(obj: any): any {
 }
 
 // Canonicalize JSON: minified with sorted keys
-function canonicalizeBody(body: any): string {
+export function canonicalizeBody(body: any): string {
   const sorted = sortKeys(body);
   return JSON.stringify(sorted);
 }
@@ -43,16 +44,7 @@ export function withM2MAuth(handler: NextApiHandler) {
         return res.status(401).json({ error: 'Invalid Client-Id' });
       }
 
-      // Prepare canonical payload for verification
-      const body = req.body;
-      const payload = canonicalizeBody(body);
-      const verifier = crypto.createVerify('SHA256');
-      verifier.update(payload);
-      verifier.end();
-
-      const signature = Buffer.from(signatureHeader, 'base64');
-      const pubKey = institution.publicKey;
-      const valid = verifier.verify(pubKey, signature);
+      const valid = verifySignature(req.body,signatureHeader, institution.publicKey);
 
       if (!valid) {
         return res.status(401).json({ error: 'Invalid signature' });
