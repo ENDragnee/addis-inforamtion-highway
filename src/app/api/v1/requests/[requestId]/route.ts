@@ -1,45 +1,81 @@
-//@/app/api/v1/requests/[requestId]/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { authenticateInstitution } from '@/lib/m2m-auth';
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { withM2MAuth } from "@/lib/m2m-auth";
+import { SignatureType } from "@/types/DataRequest";
+import { Institution } from "@/types/Institution";
+import { signPayload } from "@/lib/utils";
 
-interface RouteParams {
-  params: Promise<{ requestId: string }>;
-}
 
-export async function GET(request: NextRequest, { params }: RouteParams) {
-    // 1. Authenticate the Institution
-    const { institution, error: authError } = await authenticateInstitution(request);
-    if (authError) return authError;
+// POST /api/v1/requests/[requestId]
+export const GET = withM2MAuth(async (req: any, res: any) => {
+  try {
+    const { requestId } = req.params.requestId;
+    const institution: Institution = req.institution;
 
-    try {
-        const { requestId } = await params;
-
-        // 2. Fetch the request
-        const dataRequest = await prisma.dataRequest.findUnique({
-            where: { id: requestId },
-        });
-
-        if (!dataRequest) {
-            return NextResponse.json({ error: 'Request not found' }, { status: 404 });
-        }
-
-        // 3. Authorize: Ensure the caller is either the requester or the provider
-        if (dataRequest.requesterId !== institution!.id && dataRequest.providerId !== institution!.id) {
-            return NextResponse.json({ error: 'You are not authorized to view this request' }, { status: 403 });
-        }
-        
-        // 4. Return the relevant status information
-        return NextResponse.json({
-            requestId: dataRequest.id,
-            status: dataRequest.status,
-            createdAt: dataRequest.createdAt,
-            expiresAt: dataRequest.expiresAt,
-            failureReason: dataRequest.failureReason,
-        });
-
-    } catch (err) {
-        console.error('Error fetching request status:', err);
-        return NextResponse.json({ error: 'An internal server error occurred' }, { status: 500 });
+    const dataRequest = await prisma.dataRequest.findUnique({
+      where: { id: requestId },
+      include: { provider: true },
+    });
+    if (!dataRequest) {
+      return res.status(404).json({ error: "DataRequest not found" });
     }
-}
+    if (
+      dataRequest.requesterId !== institution.id &&
+      dataRequest.providerId !== institution.id
+    ) {
+      return res
+        .status(403)
+        .json({ error: "Unauthorized access to this DataRequest" });
+    }
+    if (dataRequest.status !== "APPROVED") {
+      return res.status(200).json({
+        requestId: dataRequest.id,
+        status: dataRequest.status,
+      });
+    }
+
+    if (
+      dataRequest.consentTokenJti &&
+      dataRequest.expiresAt > new Date() &&
+      dataRequest.status === "APPROVED"
+    ) {
+      // Sign the data request
+      const payload = {
+        requestId: dataRequest.id,
+        requesterId: dataRequest.requesterId,
+        providerId: dataRequest.providerId,
+        dataOwnerId: dataRequest.dataOwnerId,
+        relationshipId: dataRequest.relationshipId,
+        issuedAt: new Date().toISOString(),
+        expiresAt: dataRequest.expiresAt.toISOString(),
+      };
+
+      let signatureRow = await prisma.dataRequestSignature.findFirst({
+        where: {
+          dataRequestId: dataRequest.id,
+          type: SignatureType.PLATFORM,
+        },
+      });
+
+      if (!signatureRow) {
+        const signature = await signPayload(payload);
+        signatureRow = await prisma.dataRequestSignature.create({
+          data: {
+            dataRequestId: dataRequest.id,
+            type: SignatureType.PLATFORM,
+            signature: signature,
+          },
+        });
+      }
+
+      return NextResponse.json({
+        requestId: dataRequest.id,
+        status: dataRequest.status,
+        providerEndpoint: dataRequest.provider.apiEndpoint,
+      });
+    }
+  } catch (err) {
+    console.error("Error getting request:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
