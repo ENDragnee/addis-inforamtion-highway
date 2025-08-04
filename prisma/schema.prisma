@@ -16,7 +16,6 @@ model Institution {
   roleId           String
   role             Role          @relation(fields: [roleId], references: [id])
   clientId         String        @unique @default(cuid())
-  clientSecretHash String
   publicKey        String
   apiEndpoint      String
   requestsMade     DataRequest[] @relation("Requester")
@@ -45,6 +44,7 @@ model Relationship {
   providerRole    Role               @relation("ProviderRole", fields: [providerRoleId], references: [id])
   dataSchemaId    String
   dataSchema      DataSchema         @relation(fields: [dataSchemaId], references: [id])
+  dataRequests    DataRequest[]      
 
   @@unique([requesterRoleId, providerRoleId, dataSchemaId])
 }
@@ -82,10 +82,29 @@ model DataRequest {
   dataOwner       User              @relation(fields: [dataOwnerId], references: [id], onDelete: Cascade)
   dataSchemaId    String
   dataSchema      DataSchema        @relation(fields: [dataSchemaId], references: [id])
+  relationshipId  String            // NEW: links to Relationship
+  relationship    Relationship      @relation(fields: [relationshipId], references: [id])
   status          DataRequestStatus @default(INITIATED)
   consentTokenJti String?           @unique
   expiresAt       DateTime
   failureReason   String?
+  signatures      DataRequestSignature[]
+  dataHash        String?
+}
+model DataRequestSignature {
+  id            String        @id @default(cuid())
+  dataRequestId String
+  dataRequest   DataRequest   @relation(fields: [dataRequestId], references: [id])
+  type          SignatureType
+  signature     String
+  createdAt     DateTime      @default(now())
+}
+
+
+enum SignatureType {
+  REQUESTER
+  PLATFORM
+  PROVIDER
 }
 
 model SuperUser {
