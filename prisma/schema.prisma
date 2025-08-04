@@ -16,7 +16,7 @@ model Institution {
   roleId           String
   role             Role          @relation(fields: [roleId], references: [id])
   clientId         String        @unique @default(cuid())
-  publicKey        String
+  publicKey        String 
   apiEndpoint      String
   requestsMade     DataRequest[] @relation("Requester")
   requestsReceived DataRequest[] @relation("Provider")
