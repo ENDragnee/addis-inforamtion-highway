@@ -1,100 +1,80 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from "react"
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useUpsertRole, Role } from '@/hooks/use-roles';
+
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-// Define the Role type
-type Role = {
-  id: string
-  name: string
-  description: string
-  institutionCount: number
+const formSchema = z.object({
+  name: z.string().min(2, 'Role name must be at least 2 characters'),
+  description: z.string().optional(),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
+interface RoleFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  role?: Role | null;
 }
 
-type RoleFormProps = {
-  role: Role | null
-  onClose: () => void
-  isOpen: boolean
-}
+export function RoleForm({ isOpen, onClose, role }: RoleFormProps) {
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+  });
 
-export default function RoleForm({ role, onClose, isOpen }: RoleFormProps) {
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-  })
+  const upsertMutation = useUpsertRole();
 
   useEffect(() => {
     if (role) {
-      setFormData({
-        name: role.name,
-        description: role.description,
-      })
+      reset({ name: role.name, description: role.description });
     } else {
-      setFormData({
-        name: "",
-        description: "",
-      })
+      reset({ name: '', description: '' });
     }
-  }, [role, isOpen])
+  }, [role, isOpen, reset]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { id, value } = e.target
-    setFormData((prev) => ({ ...prev, [id]: value }))
-  }
-
-  const handleSubmit = () => {
-    console.log("Role form submitted:", formData)
-    // In a real app, you'd send this data to an API
-    onClose()
-  }
+  const onSubmit = (data: FormData) => {
+    upsertMutation.mutate({ id: role?.id, ...data }, {
+      onSuccess: () => onClose(),
+    });
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>{role ? "Edit Role" : "Create New Role"}</DialogTitle>
+          <DialogTitle>{role ? 'Edit Role' : 'Create New Role'}</DialogTitle>
+          <DialogDescription>
+            {role ? `Editing details for the "${role.name}" role.` : 'Define a new role for institutions in the network.'}
+          </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Role Name
-            </Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="col-span-3"
-            />
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Role Name</Label>
+            <Input id="name" {...register('name')} />
+            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="description" className="text-right">
-              Description
-            </Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={handleChange}
-              className="col-span-3"
-            />
+          <div className="space-y-2">
+            <Label htmlFor="description">Description (Optional)</Label>
+            <Input id="description" {...register('description')} />
+            {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
           </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit}>Save Role</Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={upsertMutation.isPending}>
+              {upsertMutation.isPending ? 'Saving...' : 'Save Role'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
