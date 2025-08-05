@@ -1,9 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Role as PrismaRole } from '@/generated/prisma/client'; // Import the base Prisma type
+import { Role as PrismaRole, DataSchema } from '@/generated/prisma/client';
 
-// --- Type Definitions ---
 export type Role = {
   id: string;
   name: string;
@@ -11,23 +10,38 @@ export type Role = {
   institutionCount: number;
 };
 
+export type RoleWithDetails = PrismaRole & {
+  institutionCount: number;
+  dataSchemas: Pick<DataSchema, 'id' | 'schemaId' | 'description'>[];
+};
+
+export type PaginatedRoles = {
+  data: RoleWithDetails[];
+  meta: { total: number; page: number; limit: number; totalPages: number; };
+};
+
+export type RoleFilters = {
+  page: number;
+  limit: number;
+  search: string;
+};
+
+// THE FIX (Part 2): Update the payload to include the new dataSchemaIds array.
 type UpsertRolePayload = {
   id?: string;
   name: string;
   description?: string;
+  dataSchemaIds: string[]; // This is now a required part of the payload
 };
 
-export type RoleWithCount = PrismaRole & {
-  institutionCount: number;
-};
 // --- API Functions using Axios ---
 
-const fetchRoles = async (): Promise<RoleWithCount[]> => {
-  const { data } = await axios.get('/api/v1/super/roles');
-  return data.data;
+const fetchRoles = async (filters: RoleFilters): Promise<PaginatedRoles> => {
+  const { data } = await axios.get('/api/v1/super/roles', { params: filters });
+  return data;
 };
 
-const upsertRole = async (payload: UpsertRolePayload): Promise<Role> => {
+const upsertRole = async (payload: UpsertRolePayload): Promise<PrismaRole> => {
   const { id, ...data } = payload;
   const method = id ? 'patch' : 'post';
   const url = id ? `/api/v1/super/roles/${id}` : '/api/v1/super/roles';
@@ -42,17 +56,17 @@ const deleteRole = async (roleId: string): Promise<{ message: string }> => {
 
 // --- React Query Hooks ---
 
-export const useGetRoles = () => {
-  // Use the new, more accurate type here
-  return useQuery<RoleWithCount[], Error>({
-    queryKey: ['roles'],
-    queryFn: fetchRoles,
+export const useGetRoles = (filters: RoleFilters) => {
+  return useQuery<PaginatedRoles, Error>({
+    queryKey: ['roles', filters],
+    queryFn: () => fetchRoles(filters),
+    placeholderData: keepPreviousData,
   });
 };
 
 export const useUpsertRole = () => {
   const queryClient = useQueryClient();
-  return useMutation<Role, Error, UpsertRolePayload>({
+  return useMutation<PrismaRole, Error, UpsertRolePayload>({
     mutationFn: upsertRole,
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });

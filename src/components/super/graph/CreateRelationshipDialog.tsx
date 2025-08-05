@@ -3,9 +3,8 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { useCreateRelationship } from '@/hooks/use-graph-data';
-import { Role } from '@prisma/client';
-import { Schema } from '@/hooks/use-schemas'; // Assuming you have use-schemas hook
-
+import { Role } from '@/generated/prisma/client';
+import { Schema } from '@/hooks/use-schemas';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
@@ -17,12 +16,10 @@ import { Separator } from '@/components/ui/separator';
 interface CreateRelationshipDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  // Optional for pre-filling when connecting nodes on the graph
   sourceRole?: { id: string; name: string } | null;
   targetRole?: { id: string; name: string } | null;
-  // Required for dropdowns
-  roles: Role[];
-  schemas: Schema[];
+  roles: Role[]; // The parent now ensures this is an array
+  schemas: Schema[]; // The parent now ensures this is an array
 }
 
 export default function CreateRelationshipDialog({ 
@@ -38,12 +35,11 @@ export default function CreateRelationshipDialog({
   const [selectedSchemaId, setSelectedSchemaId] = useState('');
   const createMutation = useCreateRelationship();
 
-  // Pre-fill the form if source/target roles are provided from the graph
   useEffect(() => {
     if (isOpen) {
       setRequesterRoleId(sourceRole?.id || '');
       setProviderRoleId(targetRole?.id || '');
-      setSelectedSchemaId(''); // Always reset schema choice
+      setSelectedSchemaId('');
     }
   }, [isOpen, sourceRole, targetRole]);
 
@@ -61,13 +57,18 @@ export default function CreateRelationshipDialog({
     });
   };
 
+  // Pre-fill check for dialog description
+  const descriptionText = sourceRole && targetRole 
+    ? <>Define a rule allowing <span className="font-bold text-primary">{sourceRole.name}</span> to request data from <span className="font-bold text-primary">{targetRole.name}</span>. Select the data schema for this rule.</>
+    : "Define a rule that allows one role to request specific data from another.";
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle>Create New Relationship Rule</DialogTitle>
           <DialogDescription>
-            Define a rule that allows one role to request specific data from another.
+            {descriptionText}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -76,14 +77,24 @@ export default function CreateRelationshipDialog({
               <Label htmlFor="requester-role">Requester (Asker)</Label>
               <Select value={requesterRoleId} onValueChange={setRequesterRoleId} disabled={!!sourceRole}>
                 <SelectTrigger id="requester-role"><SelectValue placeholder="Select a role..." /></SelectTrigger>
-                <SelectContent>{roles.map(role => <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {/* THE FIX: Add a check to ensure `roles` is an array before mapping */}
+                  {Array.isArray(roles) && roles.map(role => (
+                    <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="provider-role">Provider (Giver)</Label>
               <Select value={providerRoleId} onValueChange={setProviderRoleId} disabled={!!targetRole}>
                 <SelectTrigger id="provider-role"><SelectValue placeholder="Select a role..." /></SelectTrigger>
-                <SelectContent>{roles.map(role => <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {/* THE FIX: Add a check to ensure `roles` is an array before mapping */}
+                  {Array.isArray(roles) && roles.map(role => (
+                    <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
           </div>
@@ -92,7 +103,12 @@ export default function CreateRelationshipDialog({
             <Label htmlFor="data-schema">Data Schema</Label>
             <Select value={selectedSchemaId} onValueChange={setSelectedSchemaId}>
               <SelectTrigger id="data-schema"><SelectValue placeholder="Select a schema for this rule..." /></SelectTrigger>
-              <SelectContent>{schemas.map(schema => <SelectItem key={schema.id} value={schema.id}>{schema.schemaId} ({schema.description})</SelectItem>)}</SelectContent>
+              <SelectContent>
+                {/* THE FIX: Add a check to ensure `schemas` is an array before mapping */}
+                {Array.isArray(schemas) && schemas.map(schema => (
+                  <SelectItem key={schema.id} value={schema.id}>{schema.schemaId} ({schema.description})</SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
         </div>

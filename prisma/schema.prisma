@@ -27,6 +27,7 @@ model Role {
   id                 String         @id @default(cuid())
   name               String         @unique
   description        String?
+  dataSchemas        DataSchema[]
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   institutions       Institution[]
@@ -63,6 +64,7 @@ model User {
 model DataSchema {
   id            String         @id @default(cuid())
   schemaId      String         @unique
+  roles         Role[]
   description   String
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt

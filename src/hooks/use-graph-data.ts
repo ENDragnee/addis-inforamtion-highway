@@ -9,9 +9,15 @@ export type GraphNode = Node<{ label: string; role: string }>;
 export type GraphEdge = Edge<{ status: string; description: string; requesterName: string; providerName: string }>;
 type CreateRelationshipPayload = { requesterRoleId: string; providerRoleId: string; dataSchemaId: string; };
 
-type GraphData = {
+export type GraphData = {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 };
 
 type UpdateStatusPayload = {
@@ -19,9 +25,15 @@ type UpdateStatusPayload = {
   status: RelationshipStatus;
 };
 
+export type RelationshipFilters = {
+  page: number;
+  limit: number;
+  search: string;
+};
+
 // --- API Functions using Axios ---
-const fetchGraphData = async (): Promise<GraphData> => {
-  const { data } = await axios.get('/api/v1/super/graph-data');
+const fetchGraphData = async (filters: RelationshipFilters): Promise<GraphData> => {
+  const { data } = await axios.get('/api/v1/super/graph-data', { params: filters });
   
   return {
     ...data,
@@ -70,10 +82,10 @@ const createRelationship = async (payload: CreateRelationshipPayload) => {
 };
 
 // --- React Query Hooks ---
-export const useGetGraphData = () => {
+export const useGetGraphData = (filters: RelationshipFilters) => {
   return useQuery<GraphData, Error>({
-    queryKey: ['graphData'],
-    queryFn: fetchGraphData,
+    queryKey: ['graphData', filters],
+    queryFn: () => fetchGraphData(filters),
   });
 };
 
