@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { Session } from 'next-auth';
+import { useTheme } from 'next-themes'; // Import the useTheme hook
 import { 
   LayoutDashboard, 
   Building, 
@@ -12,7 +13,10 @@ import {
   Database, 
   ScrollText, 
   ShieldCheck, 
-  LogOut 
+  LogOut,
+  Moon, // Import icons for the theme switcher
+  Sun,
+  Laptop,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,17 +26,21 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub, // Import the Submenu component
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-// UPDATED: Paths are now correct for the /super route
+// Corrected paths for the /super route and added audit trail
 const navigationItems = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '/super/dashboard' },
   { name: 'Institutions', icon: Building, href: '/super/institutions' },
   { name: 'Roles', icon: Users, href: '/super/roles' },
   { name: 'Relationships', icon: Link2, href: '/super/relationships' },
   { name: 'Data Schemas', icon: Database, href: '/super/schemas' },
-  { name: 'Audit', icon: ScrollText, href: '/super/audit' },
+  { name: 'Audit', icon: ScrollText, href: '/super/audit' }, // Assuming this page exists
 ];
 
 interface SidebarProps {
@@ -41,11 +49,11 @@ interface SidebarProps {
 
 export default function Sidebar({ session }: SidebarProps) {
   const pathname = usePathname();
+  const { setTheme } = useTheme(); // Get the setTheme function
   const user = session.user;
   const userInitials = user.name?.split(' ').map(n => n[0]).join('') || 'S';
 
   return (
-    // UPDATED: Responsive classes to hide on mobile, and semantic styling
     <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex md:w-64">
       {/* Sidebar Header */}
       <div className="flex h-14 items-center border-b px-4 md:px-6">
@@ -68,7 +76,7 @@ export default function Sidebar({ session }: SidebarProps) {
                   ? 'bg-muted text-primary'
                   : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                 }`}
-              title={item.name} // Tooltip for collapsed view
+              title={item.name}
             >
               <item.icon className="h-4 w-4" />
               <span className="hidden md:inline">{item.name}</span>
@@ -77,18 +85,18 @@ export default function Sidebar({ session }: SidebarProps) {
         })}
       </nav>
 
-      {/* Sidebar Footer with User Info and Logout */}
+      {/* Sidebar Footer with User Info, Theme Switcher, and Logout */}
       <div className="mt-auto border-t p-2 md:p-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="w-full justify-start gap-2 p-2">
+            <Button variant="ghost" className="w-full justify-start gap-2 p-2 h-auto">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={user.image ?? undefined} />
                 <AvatarFallback>{userInitials}</AvatarFallback>
               </Avatar>
               <div className="hidden text-left md:inline">
-                <p className="text-sm font-medium leading-none">{user.name}</p>
-                <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                <p className="text-sm font-medium leading-none truncate">{user.name}</p>
+                <p className="text-xs leading-none text-muted-foreground truncate">{user.email}</p>
               </div>
             </Button>
           </DropdownMenuTrigger>
@@ -99,6 +107,33 @@ export default function Sidebar({ session }: SidebarProps) {
                 <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            
+            {/* THEME SWITCHER SUBMENU */}
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                <span>Toggle theme</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => setTheme('light')}>
+                    <Sun className="mr-2 h-4 w-4" />
+                    <span>Light</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme('dark')}>
+                    <Moon className="mr-2 h-4 w-4" />
+                    <span>Dark</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme('system')}>
+                    <Laptop className="mr-2 h-4 w-4" />
+                    <span>System</span>
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+            
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => signOut({ callbackUrl: '/login' })}>
               <LogOut className="mr-2 h-4 w-4" />

@@ -23,7 +23,7 @@ export type RoleWithCount = PrismaRole & {
 // --- API Functions using Axios ---
 
 const fetchRoles = async (): Promise<RoleWithCount[]> => {
-  const { data } = await axios.get('/api/super/roles');
+  const { data } = await axios.get('/api/v1/super/roles');
   return data.data;
 };
 
