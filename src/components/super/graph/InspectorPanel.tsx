@@ -9,7 +9,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Check, X, Trash2 } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { GraphEdge, useUpdateRelationshipStatus, useDeleteRelationship } from '@/hooks/use-graph-data';
-import { RelationshipStatus } from '@prisma/client';
+import { RelationshipStatus } from '@/generated/prisma/client';
 
 // Define the props for the panel's content
 interface InspectorPanelContentProps {
