@@ -59,7 +59,7 @@ export default function Sidebar({ session }: SidebarProps) {
       <div className="flex h-14 items-center border-b px-4 md:px-6">
         <Link href="/super/dashboard" className="flex items-center gap-2 font-semibold">
           <ShieldCheck className="h-6 w-6 text-primary" />
-          <span className="hidden md:inline">TrustBroker Admin</span>
+          <span className="hidden md:inline">Addis Super Admin</span>
         </Link>
       </div>
 
