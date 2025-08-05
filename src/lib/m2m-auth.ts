@@ -32,8 +32,8 @@ export function withM2MAuth(handler: AuthenticatedHandler) {
   // THE FIX (Part 2): The returned function also accepts additional arguments.
   return async (request: NextRequest, ...args: any[]): Promise<NextResponse> => {
     try {
-      const clientId = request.headers.get('x-client-id');
-      const signatureHeader = request.headers.get('x-signature');
+      const clientId = request.headers.get('Client-Id');
+      const signatureHeader = request.headers.get('Signature');
 
       if (!clientId || !signatureHeader) {
         return NextResponse.json({ error: 'Missing x-client-id or x-signature header' }, { status: 401 });
@@ -50,10 +50,9 @@ export function withM2MAuth(handler: AuthenticatedHandler) {
       // Clone the request to read the body
       const requestClone = request.clone();
       const body = await requestClone.text(); // Use .text() for more robust empty body handling
-      const canonicalBody = canonicalizeBody(body ? JSON.parse(body) : null);
 
       const isValid = verifySignature(
-        canonicalBody,
+        institution.clientId,
         signatureHeader,
         institution.publicKey
       );
