@@ -3,17 +3,12 @@ import prisma from '@/lib/prisma';
 // Assuming you have these crypto functions defined elsewhere
 // import { canonicalizeBody, verifySignature } from './crypto';
 import { Institution } from '@/generated/prisma/client';
+import { verifySignature } from './crypto';
 
 // Helper for crypto functions (add these if you don't have them)
 function canonicalizeBody(body: any): string {
   if (!body) return '';
   return JSON.stringify(body, Object.keys(body).sort());
-}
-function verifySignature(body: string, signature: string, publicKey: string): boolean {
-  // In a real app, this would use a crypto library like `jose` or `node:crypto`
-  // For this example, we'll just simulate a successful verification.
-  console.log("Simulating signature verification. In production, implement actual crypto here.");
-  return true;
 }
 
 
