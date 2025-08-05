@@ -1,65 +1,86 @@
-import { NextApiRequest, NextApiResponse, NextApiHandler } from 'next';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { verifySignature } from './crypto';
+import { canonicalizeBody, verifySignature } from './crypto';
+import { Institution } from '@/generated/prisma/client'; // Import the type for better safety
 
-// Helper: recursively sort object keys
-function sortKeys(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(sortKeys);
-  } else if (obj !== null && typeof obj === 'object') {
-    return Object.keys(obj)
-      .sort()
-      .reduce((result: any, key: string) => {
-        result[key] = sortKeys(obj[key]);
-        return result;
-      }, {});
-  }
-  return obj;
+// Define the shape of the authenticated request that will be passed to the handler
+export interface AuthenticatedRequest extends NextRequest {
+  institution: Institution;
 }
 
-// Canonicalize JSON: minified with sorted keys
-export function canonicalizeBody(body: any): string {
-  const sorted = sortKeys(body);
-  return JSON.stringify(sorted);
-}
+// Define the type for the handler function that the wrapper will accept
+type AuthenticatedHandler = (req: AuthenticatedRequest) => Promise<NextResponse>;
 
-// Middleware wrapper to enforce m2m authentication
-export function withM2MAuth(handler: NextApiHandler) {
-  return async (req: NextApiRequest, res: NextApiResponse) => {
+/**
+ * A middleware wrapper for Next.js App Router API routes that enforces
+ * M2M (Machine-to-Machine) authentication via digital signatures.
+ *
+ * @param handler The API route handler to execute upon successful authentication.
+ * @returns A new request handler that includes the authentication check.
+ */
+export function withM2MAuth(handler: AuthenticatedHandler) {
+  return async (request: NextRequest): Promise<NextResponse> => {
     try {
-      const clientId = req.headers['client-id'] as string;
-      const signatureHeader = req.headers['signature'] as string;
+      // 1. Extract headers
+      // Header names are case-insensitive, so we use lowercase.
+      const clientId = request.headers.get('x-client-id');
+      const signatureHeader = request.headers.get('x-signature');
 
       if (!clientId || !signatureHeader) {
-        return res.status(401).json({ error: 'Missing Client-Id or Signature header' });
+        return NextResponse.json(
+          { error: 'Missing x-client-id or x-signature header' },
+          { status: 401 }
+        );
       }
 
-      // Lookup institution by clientId
+      // 2. Lookup institution by clientId
       const institution = await prisma.institution.findUnique({
-        where: { clientId }
+        where: { clientId },
       });
 
       if (!institution) {
-        return res.status(401).json({ error: 'Invalid Client-Id' });
+        return NextResponse.json({ error: 'Invalid client ID' }, { status: 401 });
       }
 
-      const valid = verifySignature(
-        institution.clientId,
+      // 3. Handle the request body for signature verification
+      // In the App Router, a request body can only be read once. To allow both
+      // this middleware and the final handler to access it, we must clone the request.
+      const requestClone = request.clone();
+      const body = await requestClone.json();
+      
+      // Create a deterministic string representation of the body
+      const canonicalBody = canonicalizeBody(body);
+
+      // 4. Verify the signature
+      const isValid = verifySignature(
+        canonicalBody,
         signatureHeader,
         institution.publicKey
       );
 
-      if (!valid) {
-        return res.status(401).json({ error: 'Invalid signature' });
+      if (!isValid) {
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
       }
 
-      (req as any).institution = institution;
+      // 5. Authentication successful.
+      // We create an "augmented" request object that includes the authenticated institution.
+      // This is a common pattern to pass context from middleware to the handler.
+      const authenticatedRequest = request as AuthenticatedRequest;
+      authenticatedRequest.institution = institution;
 
-      // Invoke the actual handler
-      return await handler(req, res);
-    } catch (err) {
-      console.error('M2M auth error:', err);
-      return res.status(500).json({ error: 'Internal authentication error' });
+      // 6. Invoke the actual API route handler with the augmented request.
+      return await handler(authenticatedRequest);
+
+    } catch (err: any) {
+      // Handle potential errors like malformed JSON in the request body.
+      if (err instanceof SyntaxError) {
+        return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+      }
+      console.error('M2M Auth Middleware Error:', err);
+      return NextResponse.json(
+        { error: 'Internal server authentication error' },
+        { status: 500 }
+      );
     }
   };
 }

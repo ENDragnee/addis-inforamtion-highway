@@ -1,5 +1,19 @@
 import crypto from 'crypto';
 
+function sortKeys(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(sortKeys);
+  } else if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj)
+      .sort()
+      .reduce((result: any, key: string) => {
+        result[key] = sortKeys(obj[key]);
+        return result;
+      }, {});
+  }
+  return obj;
+}
+
 const privateKeyPem = Buffer.from(process.env.SYSTEM_PRIVATE_KEY_B64!, 'base64').toString('utf8');
 
 export function signPayload(payload: object) {
@@ -8,6 +22,11 @@ export function signPayload(payload: object) {
   signer.update(canonical);
   signer.end();
   return signer.sign(privateKeyPem, 'base64');
+}
+
+export function canonicalizeBody(body: any): string {
+  const sorted = sortKeys(body);
+  return JSON.stringify(sorted);
 }
 
 export function verifyLocalSignature(payload: object, signature: string) {

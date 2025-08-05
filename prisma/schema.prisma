@@ -55,7 +55,6 @@ model User {
   externalId      String        @unique
   verifaydaSub    String?       @unique
   fcmToken        String?       @unique 
-  pushToken       String?       @unique
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   dataRequests    DataRequest[]
