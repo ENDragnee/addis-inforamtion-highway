@@ -11,6 +11,7 @@ datasource db {
 model Institution {
   id               String        @id @default(cuid())
   name             String        @unique
+  status           InstitutionStatus @default(ACTIVE)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   roleId           String
@@ -138,4 +139,10 @@ enum RelationshipStatus {
   ACTIVE
   REJECTED
   REVOKED
+}
+
+enum InstitutionStatus {
+  ACTIVE    // The institution is fully operational.
+  PENDING   // Awaiting approval by a superuser.
+  SUSPENDED // Temporarily disabled.
 }

@@ -1,148 +1,98 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from "react"
+import { useEffect, useRef } from 'react';
+import { Role, Institution } from '@/generated/prisma/client';
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useServerAction } from '@/hooks/use-server-action';
+import toast from 'react-hot-toast';
 
-// Define the Institution type (same as in page.tsx)
-type Institution = {
-  id: string
-  name: string
-  role: string
-  clientId: string
-  status: 'Active' | 'Suspended'
-  apiEndpoint: string
+interface InstitutionFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  institution?: Institution;
+  roles: Role[];
+  upsertAction: (formData: FormData) => Promise<any>;
 }
 
-type InstitutionFormProps = {
-  institution: Institution | null
-  onClose: () => void
-  isOpen: boolean
-}
-
-export default function InstitutionForm({ institution, onClose, isOpen }: InstitutionFormProps) {
-  const [formData, setFormData] = useState({
-    name: "",
-    role: "",
-    apiEndpoint: "",
-    publicKey: "", // Assuming a new field for public key
-  })
-
-  useEffect(() => {
-    if (institution) {
-      setFormData({
-        name: institution.name,
-        role: institution.role,
-        apiEndpoint: institution.apiEndpoint,
-        publicKey: "mock-public-key-for-" + institution.id, // Placeholder for public key
-      })
-    } else {
-      setFormData({
-        name: "",
-        role: "",
-        apiEndpoint: "",
-        publicKey: "",
-      })
+export function InstitutionForm({ isOpen, onClose, institution, roles, upsertAction }: InstitutionFormProps) {
+  const formRef = useRef<HTMLFormElement>(null);
+  
+  const { execute, isPending, error } = useServerAction(upsertAction, {
+    onSuccess: () => {
+      toast.success(`Institution ${institution ? 'updated' : 'created'} successfully!`);
+      onClose();
+    },
+    onError: (err: any) => {
+      // Errors can be handled here if needed, but we'll display them inline
     }
-  }, [institution, isOpen]) // Re-initialize when institution or isOpen changes
+  });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { id, value } = e.target
-    setFormData((prev) => ({ ...prev, [id]: value }))
-  }
-
-  const handleSelectChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, role: value }))
-  }
-
-  const handleSubmit = () => {
-    console.log("Form submitted:", formData)
-    // In a real app, you'd send this data to an API
-    onClose()
-  }
+  // Reset the form when the dialog is closed or the institution changes
+  useEffect(() => {
+    if (!isOpen) {
+      formRef.current?.reset();
+    }
+  }, [isOpen]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>{institution ? "Edit Institution" : "Add New Institution"}</DialogTitle>
+          <DialogTitle>{institution ? 'Edit Institution' : 'Add New Institution'}</DialogTitle>
+          <DialogDescription>
+            {institution ? `Editing details for ${institution.name}.` : 'Fill in the details for the new institution.'}
+          </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Institution Name
-            </Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="col-span-3"
-            />
+        <form ref={formRef} action={execute} className="space-y-4">
+          {institution && <input type="hidden" name="id" value={institution.id} />}
+          
+          <div className="space-y-2">
+            <Label htmlFor="name">Institution Name</Label>
+            <Input id="name" name="name" defaultValue={institution?.name} required />
+            {error?.name && <p className="text-xs text-destructive">{error.name[0]}</p>}
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="role" className="text-right">
-              Role
-            </Label>
-            <Select onValueChange={handleSelectChange} value={formData.role}>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
+
+          <div className="space-y-2">
+            <Label htmlFor="roleId">Role</Label>
+            <Select name="roleId" defaultValue={institution?.roleId}>
+              <SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="Primary Partner">Primary Partner</SelectItem>
-                <SelectItem value="Service Provider">Service Provider</SelectItem>
-                <SelectItem value="Affiliate">Affiliate</SelectItem>
-                <SelectItem value="Consulting Partner">Consulting Partner</SelectItem>
-                <SelectItem value="Bank">Bank</SelectItem>
-                <SelectItem value="Employer">Employer</SelectItem>
+                {roles.map(role => (
+                  <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
+             {error?.roleId && <p className="text-xs text-destructive">{error.roleId[0]}</p>}
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="apiEndpoint" className="text-right">
-              API Endpoint
-            </Label>
-            <Input
-              id="apiEndpoint"
-              value={formData.apiEndpoint}
-              onChange={handleChange}
-              className="col-span-3"
-            />
+
+          <div className="space-y-2">
+            <Label htmlFor="apiEndpoint">API Endpoint</Label>
+            <Input id="apiEndpoint" name="apiEndpoint" defaultValue={institution?.apiEndpoint} required type="url" />
+             {error?.apiEndpoint && <p className="text-xs text-destructive">{error.apiEndpoint[0]}</p>}
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="publicKey" className="text-right">
-              Public Key
-            </Label>
-            <Textarea
-              id="publicKey"
-              value={formData.publicKey}
-              onChange={handleChange}
-              className="col-span-3"
-            />
+
+          <div className="space-y-2">
+            <Label htmlFor="publicKey">Public Key</Label>
+            <Input id="publicKey" name="publicKey" defaultValue={institution?.publicKey} required />
+             {error?.publicKey && <p className="text-xs text-destructive">{error.publicKey[0]}</p>}
           </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit}>Save Changes</Button>
-        </DialogFooter>
+          
+          {error?._form && <p className="text-sm text-destructive">{error._form[0]}</p>}
+          
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? 'Saving...' : 'Save Institution'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

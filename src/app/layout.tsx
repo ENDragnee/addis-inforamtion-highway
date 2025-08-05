@@ -6,6 +6,7 @@ import { ThemeProvider } from "./context/ThemeProvider";
 import { NavbarProvider } from "./context/NavbarContext";
 import ClientLayout from "../components/ClientLayout"; 
 import { Toaster } from 'react-hot-toast'; // Import the toaster
+import QueryProvider from "@/components/providers/QueryProvider"; // Import the new provider
 
 export const metadata: Metadata = {
   title: "Addis-Information-Highway",
@@ -30,7 +31,9 @@ export default function RootLayout({
             <NavbarProvider>
               {/* Use the ClientLayout to wrap the children */}
               <ClientLayout>
-                {children}
+                <QueryProvider>
+                  {children}
+                </QueryProvider>
                 <Toaster position="bottom-right" /> 
               </ClientLayout>
             </NavbarProvider>

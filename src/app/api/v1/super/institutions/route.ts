@@ -1,59 +1,53 @@
-// app/api/institutions/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+// Note: Using the path consistent with your other files. If this is wrong, adjust as needed.
 import prisma from '@/lib/prisma';
+import { z } from 'zod';
 
+// --- Zod Schema for robust validation ---
+// REMOVED: The clientSecret field is no longer needed.
+const createInstitutionSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  roleId: z.string().cuid('A valid role must be selected'),
+  apiEndpoint: z.string().url('Must be a valid URL'),
+  publicKey: z.string().min(10, 'Public key is required'),
+});
+
+// --- GET (List) Institutions ---
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-
     if (!session || session.user.type !== 'SUPER_USER') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
-
-const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
-const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10')));
-
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10')));
     const search = searchParams.get('search') || '';
+    const skip = (page - 1) * limit;
 
-    const skip = (page - 1) * limit
+    const where = search ? { name: { contains: search, mode: 'insensitive' as const } } : {};
 
-    // ✅ Build filter
-    const where = search
-      ? {
-          name: {
-            contains: search,
-            mode: 'insensitive' as const,
-          },
-        }
-      : {}
-
-    // ✅ Fetch total count
-    const total = await prisma.institution.count({ where })
-
-    // ✅ Fetch paginated results
-    const institutions = await prisma.institution.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    })
+    const [total, institutions] = await Promise.all([
+        prisma.institution.count({ where }),
+        prisma.institution.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { createdAt: 'desc' },
+            select: {
+                id: true,
+                name: true,
+                status: true,
+                clientId: true,
+                createdAt: true,
+                publicKey: true, // UPDATED: Include the publicKey
+                role: { select: { id: true, name: true } },
+            },
+        })
+    ]);
 
     return NextResponse.json({
       data: institutions,
@@ -63,27 +57,30 @@ const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '1
         limit,
         totalPages: Math.ceil(total / limit),
       },
-    }, { status: 200 });
+    });
   } catch (error) {
-    console.error('[GET /api/institutions] Error:', error)
-    return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+    console.error('[GET /api/super/institutions] Error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
-
+// --- POST (Create) an Institution ---
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || session.user.type !== 'SUPER_USER') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const body = await req.json();
-    const { name, roleId, apiEndpoint, publicKey, clientSecretHash } = body;
+    const validation = createInstitutionSchema.safeParse(body);
 
-    if (!name || !roleId || !apiEndpoint || !publicKey || !clientSecretHash) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!validation.success) {
+      return NextResponse.json({ error: 'Invalid request body', details: validation.error.issues }, { status: 400 });
     }
+    
+    // UPDATED: No longer destructuring clientSecret
+    const { name, roleId, apiEndpoint, publicKey } = validation.data;
 
     const newInstitution = await prisma.institution.create({
       data: {
@@ -91,7 +88,8 @@ export async function POST(req: NextRequest) {
         roleId,
         apiEndpoint,
         publicKey,
-        clientSecretHash,
+        // REMOVED: clientSecretHash is no longer in the schema
+        status: 'PENDING',
       },
       select: {
         id: true,
@@ -99,15 +97,17 @@ export async function POST(req: NextRequest) {
         apiEndpoint: true,
         publicKey: true,
         clientId: true,
+        status: true,
         createdAt: true,
       },
     });
 
-    return NextResponse.json({ data: newInstitution }, { status: 201 });
+    return NextResponse.json({ data: newInstitution, message: 'Institution created successfully. It is pending approval.' }, { status: 201 });
   } catch (error) {
-    console.error('[POST /api/institutions] Error:', error);
+    console.error('[POST /api/super/institutions] Error:', error);
+    if (error) {
+        return NextResponse.json({ error: 'An institution with this name already exists.' }, { status: 409 });
+    }
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
-
-
