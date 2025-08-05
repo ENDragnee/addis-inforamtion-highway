@@ -65,6 +65,7 @@ model DataSchema {
   id            String         @id @default(cuid())
   schemaId      String         @unique
   roles         Role[]
+  parameters    Json?
   description   String
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt

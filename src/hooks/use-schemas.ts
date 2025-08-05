@@ -1,27 +1,41 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { DataSchema } from '@/generated/prisma/client';
 
 export type Schema = DataSchema;
-// --- Type Definitions ---
-// The type returned by our GET list endpoint
-export type SchemaWithCount = DataSchema & {
+
+export type SchemaWithCount = Schema & {
   relationshipCount: number;
 };
 
-// The payload for creating or updating a schema
+export type SchemaFilters = {
+  page: number;
+  limit: number;
+  search: string;
+  sort: string;
+};
+
 type UpsertSchemaPayload = {
   id?: string;
   schemaId: string;
   description: string;
+  parameters: Record<string, string>;
 };
 
-// --- API Functions using Axios ---
+export type PaginatedSchemas = {
+  data: SchemaWithCount[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+};
 
-const fetchSchemas = async (): Promise<SchemaWithCount[]> => {
-  const { data } = await axios.get('/api/v1/super/schemas');
-  return data.data;
+const fetchSchemas = async (filters: SchemaFilters): Promise<PaginatedSchemas> => {
+  const { data } = await axios.get('/api/v1/super/schemas', { params: filters });
+  return data;
 };
 
 const upsertSchema = async (payload: UpsertSchemaPayload): Promise<DataSchema> => {
@@ -29,7 +43,7 @@ const upsertSchema = async (payload: UpsertSchemaPayload): Promise<DataSchema> =
   const method = id ? 'patch' : 'post';
   const url = id ? `/api/v1/super/schemas/${id}` : '/api/v1/super/schemas';
   const response = await axios[method](url, data);
-  return response.data;
+  return response.data.data;
 };
 
 const deleteSchema = async (schemaId: string): Promise<{ message: string }> => {
@@ -37,28 +51,19 @@ const deleteSchema = async (schemaId: string): Promise<{ message: string }> => {
   return response.data;
 };
 
-// --- React Query Hooks ---
-
-/**
- * Hook to fetch all data schemas with their relationship counts.
- */
-export const useGetSchemas = () => {
-  return useQuery<SchemaWithCount[], Error>({
-    queryKey: ['schemas'],
-    queryFn: fetchSchemas,
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+export const useGetSchemas = (filters: SchemaFilters) => {
+  return useQuery<PaginatedSchemas, Error>({
+    queryKey: ['schemas', filters],
+    queryFn: () => fetchSchemas(filters),
+    placeholderData: keepPreviousData,
   });
 };
 
-/**
- * Hook for creating or updating a data schema.
- */
 export const useUpsertSchema = () => {
   const queryClient = useQueryClient();
   return useMutation<DataSchema, Error, UpsertSchemaPayload>({
     mutationFn: upsertSchema,
     onSuccess: (data, variables) => {
-      // Invalidate the 'schemas' query to refetch the list
       queryClient.invalidateQueries({ queryKey: ['schemas'] });
       const action = variables.id ? 'updated' : 'created';
       toast.success(`Schema "${data.schemaId}" ${action} successfully.`);
@@ -69,9 +74,6 @@ export const useUpsertSchema = () => {
   });
 };
 
-/**
- * Hook for deleting a data schema.
- */
 export const useDeleteSchema = () => {
   const queryClient = useQueryClient();
   return useMutation<{ message: string }, Error, string>({

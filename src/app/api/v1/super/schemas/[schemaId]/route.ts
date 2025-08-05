@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { Prisma } from '@/generated/prisma';
 import { z } from 'zod';
 
 const schemaValidation = z.object({
   schemaId: z.string().min(3).optional(),
   description: z.string().min(10).optional(),
+  parameters: z.record(z.string(), z.string()).optional(),
 });
 
 interface RouteParams {
@@ -28,9 +30,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Invalid request body', details: validation.error.issues }, { status: 400 });
     }
 
+    const { schemaId, description, parameters } = validation.data;
+
     const updatedSchema = await prisma.dataSchema.update({
       where: { id: schemaId },
-      data: validation.data,
+      data: { schemaId, description, parameters: parameters || Prisma.JsonNull },
     });
 
     return NextResponse.json({ data: updatedSchema, message: 'Schema updated successfully' });

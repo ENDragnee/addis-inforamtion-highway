@@ -54,7 +54,7 @@ export default function Sidebar({ session }: SidebarProps) {
   const userInitials = user.name?.split(' ').map(n => n[0]).join('') || 'S';
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex md:w-64">
+    <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex md:w-64 rounded-xl">
       {/* Sidebar Header */}
       <div className="flex h-14 items-center border-b px-4 md:px-6">
         <Link href="/super/dashboard" className="flex items-center gap-2 font-semibold">
