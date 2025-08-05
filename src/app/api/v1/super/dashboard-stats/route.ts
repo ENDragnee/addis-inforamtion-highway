@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth'; // Ensure this path is correct
 import prisma from '@/lib/prisma'; // Ensure this path is correct
-import { DataRequestStatus } from '@prisma/client';
+import { DataRequestStatus } from '@/generated/prisma';
 
 export async function GET() {
   // 1. Authenticate and Authorize the user
