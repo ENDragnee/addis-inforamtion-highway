@@ -1,98 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import prisma from '@/lib/prisma';
+import { z } from 'zod';
 
+// Zod schema for creating/updating a DataSchema
+const schemaValidation = z.object({
+  schemaId: z.string().min(3, 'Schema ID must be at least 3 characters (e.g., salary_v1)'),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
+});
+
+// --- GET (List) all Data Schemas ---
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || session.user.type !== 'SUPER_USER') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10')));
-    const search = searchParams.get('search') || '';
-
-    const skip = (page - 1) * limit;
-
-    const where = search
-      ? {
-          schemaId: {
-            contains: search,
-            mode: 'insensitive' as const,
-          },
-        }
-      : {};
-
-    const total = await prisma.dataSchema.count({ where });
-
-    const dataSchemas = await prisma.dataSchema.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        schemaId: true,
-        description: true,
-        createdAt: true,
-        updatedAt: true,
+    const schemas = await prisma.dataSchema.findMany({
+      orderBy: { schemaId: 'asc' },
+      include: {
+        _count: {
+          select: { relationships: true }, // Count how many rules use this schema
+        },
       },
     });
 
-    return NextResponse.json({
-      data: dataSchemas,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    }, { status: 200 });
+    // Transform the data for the frontend
+    const formattedSchemas = schemas.map(schema => ({
+      ...schema,
+      relationshipCount: schema._count.relationships,
+    }));
+
+    return NextResponse.json({ data: formattedSchemas });
   } catch (error) {
-    console.error('[GET /api/dataSchemas] Error:', error);
+    console.error('[GET /api/super/schemas] Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
+// --- POST (Create) a new Data Schema ---
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || session.user.type !== 'SUPER_USER') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const body = await req.json();
-    const { schemaId, description } = body;
-
-    if (!schemaId || typeof schemaId !== 'string') {
-      return NextResponse.json({ error: 'schemaId is required and must be a string' }, { status: 400 });
+    const validation = schemaValidation.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json({ error: 'Invalid request body', details: validation.error.issues }, { status: 400 });
     }
 
-    const existing = await prisma.dataSchema.findUnique({ where: { schemaId } });
-    if (existing) {
-      return NextResponse.json({ error: 'schemaId must be unique' }, { status: 409 });
-    }
-
-    const newDataSchema = await prisma.dataSchema.create({
-      data: {
-        schemaId,
-        description: description || '',
-      },
-      select: {
-        id: true,
-        schemaId: true,
-        description: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const newSchema = await prisma.dataSchema.create({
+      data: validation.data,
     });
 
-    return NextResponse.json({ data: newDataSchema }, { status: 201 });
+    return NextResponse.json({ data: newSchema, message: 'Data Schema created successfully' }, { status: 201 });
   } catch (error) {
-    console.error('[POST /api/dataSchemas] Error:', error);
+    if (error) {
+      return NextResponse.json({ error: 'A schema with this ID already exists.' }, { status: 409 });
+    }
+    console.error('[POST /api/super/schemas] Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

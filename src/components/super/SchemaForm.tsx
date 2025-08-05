@@ -1,150 +1,91 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useUpsertSchema, SchemaWithCount } from '@/hooks/use-schemas';
+
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
-// Define types for props
-type Role = {
-  id: string
-  name: string
+// Define the form's validation schema using Zod
+const formSchema = z.object({
+  schemaId: z.string().min(3, 'Schema ID must be at least 3 characters (e.g., salary_v1)'),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
+interface SchemaFormProps {
+  schema: SchemaWithCount | null;
+  onClose: () => void;
+  isOpen: boolean;
 }
 
-type DataSchema = {
-  id: string
-  schemaUrn: string
-  description: string
-  issuerRole: Role;
-  jsonSchema?: string; // Optional JSON schema definition
-}
+export default function SchemaForm({ schema, onClose, isOpen }: SchemaFormProps) {
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+  });
 
-type SchemaFormProps = {
-  schema: DataSchema | null
-  onClose: () => void
-  isOpen: boolean
-  roles: Role[]
-}
+  const upsertMutation = useUpsertSchema();
 
-export default function SchemaForm({ schema, onClose, isOpen, roles }: SchemaFormProps) {
-  const [formData, setFormData] = useState({
-    schemaUrn: "",
-    description: "",
-    issuerRoleId: "",
-    jsonSchema: "",
-  })
-
+  // Populate the form with data when editing an existing schema
   useEffect(() => {
     if (schema) {
-      setFormData({
-        schemaUrn: schema.schemaUrn,
-        description: schema.description,
-        issuerRoleId: schema.issuerRole.id,
-        jsonSchema: schema.jsonSchema || "",
-      })
+      reset({ schemaId: schema.schemaId, description: schema.description });
     } else {
-      setFormData({
-        schemaUrn: "",
-        description: "",
-        issuerRoleId: "",
-        jsonSchema: "",
-      })
+      reset({ schemaId: '', description: '' });
     }
-  }, [schema, isOpen])
+  }, [schema, isOpen, reset]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { id, value } = e.target
-    setFormData((prev) => ({ ...prev, [id]: value }))
-  }
-
-  const handleSelectChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, issuerRoleId: value }))
-  }
-
-  const handleSubmit = () => {
-    console.log("Schema form submitted:", formData)
-    // In a real app, you'd send this data to an API
-    onClose()
-  }
+  const onSubmit = (data: FormData) => {
+    upsertMutation.mutate({ id: schema?.id, ...data }, {
+      onSuccess: () => onClose(), // Close the dialog on successful mutation
+    });
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{schema ? "Edit Schema" : "Add New Schema"}</DialogTitle>
+          <DialogTitle>{schema ? 'Edit Schema' : 'Add New Schema'}</DialogTitle>
+          <DialogDescription>
+            {schema ? `Editing details for ${schema.schemaId}.` : 'Define a new data schema for the network.'}
+          </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="schemaUrn">Schema URN</Label>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="schemaId">Schema ID (URN)</Label>
             <Input
-              id="schemaUrn"
-              value={formData.schemaUrn}
-              onChange={handleChange}
+              id="schemaId"
+              placeholder="e.g., salary_verification_v1"
+              {...register('schemaId')}
             />
-            <p className="text-sm text-gray-500">
-              This is the unique, versioned ID. Format: domain.source.Entity_v1
-            </p>
+            {errors.schemaId && <p className="text-xs text-destructive">{errors.schemaId.message}</p>}
           </div>
-          <div className="grid gap-2">
+          <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              value={formData.description}
-              onChange={handleChange}
+              placeholder="A short, clear description of what this schema represents."
+              {...register('description')}
             />
+            {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="jsonSchema">JSON Schema Definition (Optional)</Label>
-            <Textarea
-              id="jsonSchema"
-              value={formData.jsonSchema}
-              onChange={handleChange}
-              className="font-mono"
-              rows={10}
-              placeholder="Paste JSON schema here..."
-            />
-            <p className="text-sm text-gray-500">
-              Define the structure of the Verifiable Credential using JSON Schema.
-            </p>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="issuerRole">Authoritative Issuer Role</Label>
-            <Select onValueChange={handleSelectChange} value={formData.issuerRoleId}>
-              <SelectTrigger id="issuerRole">
-                <SelectValue placeholder="Select Issuer Role" />
-              </SelectTrigger>
-              <SelectContent>
-                {roles.map((role) => (
-                  <SelectItem key={role.id} value={role.id}>
-                    {role.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit}>Save Schema</Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={upsertMutation.isPending}>
+              {upsertMutation.isPending ? 'Saving...' : 'Save Schema'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

@@ -1,148 +1,128 @@
 "use client"
 
 import { useState } from "react"
-import { PlusCircle, MoreHorizontal, Edit } from "lucide-react"
+import { PlusCircle, MoreHorizontal, Edit, Trash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
+  Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table"
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import Loading from "@/components/ui/loading"
+import { ConfirmationDialog } from "@/components/ConfirmationDialog"
 import SchemaForm from "@/components/super/SchemaForm"
-import React from "react"
-
-// Define the Data Structure (TypeScript)
-type Role = {
-  id: string
-  name: string
-}
-
-type DataSchema = {
-  id: string
-  schemaUrn: string
-  description: string
-  issuerRole: Role
-}
-
-// Create Mock Data
-const mockSchemas: DataSchema[] = [
-  {
-    id: "schema_001",
-    schemaUrn: "et.fayda.person.BirthCertificate_v1",
-    description: "Official record of a person's birth.",
-    issuerRole: { id: "role_government", name: "Government Agency" },
-  },
-  {
-    id: "schema_002",
-    schemaUrn: "et.fayda.employer.payroll.SalaryVerification_v1",
-    description: "Verification of an individual's salary from an employer.",
-    issuerRole: { id: "role_employer", name: "Employer" },
-  },
-  {
-    id: "schema_003",
-    schemaUrn: "et.fayda.university.degree.UniversityDegree_v1",
-    description: "Record of a degree awarded by a university.",
-    issuerRole: { id: "role_university", name: "University" },
-  },
-  {
-    id: "schema_004",
-    schemaUrn: "et.fayda.bank.account.BankAccountDetails_v1",
-    description: "Details of a bank account.",
-    issuerRole: { id: "role_bank", name: "Bank" },
-  },
-]
-
-// Mock Data for Roles (for the form dropdowns)
-const allRoles: Role[] = [
-  { id: "role_government", name: "Government Agency" },
-  { id: "role_employer", name: "Employer" },
-  { id: "role_university", name: "University" },
-  { id: "role_bank", name: "Bank" },
-  { id: "role_ministry", name: "Ministry of Education" },
-]
+import { useGetSchemas, useDeleteSchema, SchemaWithCount } from "@/hooks/use-schemas"
 
 export default function SchemasPage() {
-  const [isFormOpen, setIsFormOpen] = useState(false)
-  const [selectedSchema, setSelectedSchema] = useState<DataSchema | null>(null)
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedSchema, setSelectedSchema] = useState<SchemaWithCount | null>(null);
+  const [schemaToDelete, setSchemaToDelete] = useState<SchemaWithCount | null>(null);
+
+  // Fetch data using our custom hook
+  const { data: schemas, isLoading, error } = useGetSchemas();
+  const deleteSchemaMutation = useDeleteSchema();
 
   const handleAddSchema = () => {
-    setSelectedSchema(null)
-    setIsFormOpen(true)
-  }
+    setSelectedSchema(null);
+    setIsFormOpen(true);
+  };
 
-  const handleEditSchema = (schema: DataSchema) => {
-    setSelectedSchema(schema)
-    setIsFormOpen(true)
-  }
+  const handleEditSchema = (schema: SchemaWithCount) => {
+    setSelectedSchema(schema);
+    setIsFormOpen(true);
+  };
 
-  const handleCloseForm = () => {
-    setIsFormOpen(false)
-    setSelectedSchema(null)
-  }
+  const handleDeleteClick = (schema: SchemaWithCount) => {
+    setSchemaToDelete(schema);
+  };
+  
+  const confirmDelete = () => {
+    if (schemaToDelete) {
+      deleteSchemaMutation.mutate(schemaToDelete.id);
+      setSchemaToDelete(null); // Close the confirmation dialog
+    }
+  };
+
+  if (isLoading) return <Loading text="Loading data schemas..." />;
+  if (error) return <p className="text-destructive">Error: {error.message}</p>;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-800">Data Schema Management</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Data Schema Management</h1>
+          <p className="text-muted-foreground">Define the types of data that can be exchanged in the network.</p>
+        </div>
         <Button onClick={handleAddSchema}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add New Schema
         </Button>
       </div>
 
-      {/* Data Table */}
-      <div className="rounded-md border bg-white shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[300px]">SCHEMA URN</TableHead>
-              <TableHead>DESCRIPTION</TableHead>
-              <TableHead>ISSUER ROLE</TableHead>
-              <TableHead className="text-right">ACTIONS</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {mockSchemas.map((schema) => (
-              <TableRow key={schema.id}>
-                <TableCell className="font-mono font-medium">{schema.schemaUrn}</TableCell>
-                <TableCell>{schema.description}</TableCell>
-                <TableCell>{schema.issuerRole.name}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEditSchema(schema)}>
-                        <Edit className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+      <Card>
+        <CardHeader>
+          <CardTitle>All Schemas</CardTitle>
+          <CardDescription>
+            A list of all defined data schemas and the number of relationship rules using them.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>SCHEMA ID (URN)</TableHead>
+                <TableHead>DESCRIPTION</TableHead>
+                <TableHead>RULES USING</TableHead>
+                <TableHead className="text-right">ACTIONS</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {schemas?.map((schema) => (
+                <TableRow key={schema.id}>
+                  <TableCell className="font-mono font-medium">{schema.schemaId}</TableCell>
+                  <TableCell className="text-muted-foreground">{schema.description}</TableCell>
+                  <TableCell>{schema.relationshipCount}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => handleEditSchema(schema)}>
+                          <Edit className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleDeleteClick(schema)} className="text-destructive">
+                          <Trash className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <SchemaForm
         schema={selectedSchema}
-        onClose={handleCloseForm}
+        onClose={() => setIsFormOpen(false)}
         isOpen={isFormOpen}
-        roles={allRoles}
       />
+
+      {schemaToDelete && (
+        <ConfirmationDialog
+          isOpen={!!schemaToDelete}
+          onClose={() => setSchemaToDelete(null)}
+          onConfirm={confirmDelete}
+          title={`Delete Schema: ${schemaToDelete.schemaId}?`}
+          description="Are you sure you want to delete this schema? This action cannot be undone and will fail if the schema is currently used in any relationships."
+          confirmText="Delete"
+        />
+      )}
     </div>
-  )
+  );
 }

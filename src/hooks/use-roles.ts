@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { Role as PrismaRole } from '@/generated/prisma/client'; // Import the base Prisma type
 
 // --- Type Definitions ---
 export type Role = {
@@ -16,10 +17,13 @@ type UpsertRolePayload = {
   description?: string;
 };
 
+export type RoleWithCount = PrismaRole & {
+  institutionCount: number;
+};
 // --- API Functions using Axios ---
 
-const fetchRoles = async (): Promise<Role[]> => {
-  const { data } = await axios.get('/api/v1/super/roles');
+const fetchRoles = async (): Promise<RoleWithCount[]> => {
+  const { data } = await axios.get('/api/super/roles');
   return data.data;
 };
 
@@ -39,7 +43,8 @@ const deleteRole = async (roleId: string): Promise<{ message: string }> => {
 // --- React Query Hooks ---
 
 export const useGetRoles = () => {
-  return useQuery<Role[], Error>({
+  // Use the new, more accurate type here
+  return useQuery<RoleWithCount[], Error>({
     queryKey: ['roles'],
     queryFn: fetchRoles,
   });

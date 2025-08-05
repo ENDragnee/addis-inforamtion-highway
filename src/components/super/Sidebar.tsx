@@ -32,7 +32,7 @@ const navigationItems = [
   { name: 'Roles', icon: Users, href: '/super/roles' },
   { name: 'Relationships', icon: Link2, href: '/super/relationships' },
   { name: 'Data Schemas', icon: Database, href: '/super/schemas' },
-  { name: 'Data Requests', icon: ScrollText, href: '/super/datarequests' },
+  { name: 'Audit', icon: ScrollText, href: '/super/audit' },
 ];
 
 interface SidebarProps {

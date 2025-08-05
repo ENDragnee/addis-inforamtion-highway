@@ -20,7 +20,6 @@ export async function GET(req: NextRequest) {
 
     const roles = await prisma.role.findMany({
       orderBy: { name: 'asc' },
-      // Include a count of related institutions
       include: {
         _count: {
           select: { institutions: true },
@@ -28,11 +27,10 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Transform the data to match the frontend's expected format
+    // THE FIX: We now spread the full `role` object to include all its fields (like createdAt)
+    // and then add our custom `institutionCount` property.
     const formattedRoles = roles.map(role => ({
-      id: role.id,
-      name: role.name,
-      description: role.description ?? '',
+      ...role, // This includes id, name, description, createdAt, updatedAt
       institutionCount: role._count.institutions,
     }));
 
