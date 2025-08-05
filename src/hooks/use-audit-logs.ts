@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { DataRequest, Institution, DataSchema, DataRequestStatus } from '@prisma/client';
+import { DataRequest, Institution, DataSchema, DataRequestStatus } from '@/generated/prisma/client';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 // THE FIX: Import the `keepPreviousData` function from TanStack Query
