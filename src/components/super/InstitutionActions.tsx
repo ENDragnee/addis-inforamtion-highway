@@ -67,7 +67,6 @@ export function InstitutionActions({ institution, roles, upsertAction }: Institu
         onClose={() => setIsFormOpen(false)}
         institution={institution}
         roles={roles}
-        upsertAction={upsertAction}
       />
     </>
   );

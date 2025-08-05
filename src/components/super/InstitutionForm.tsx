@@ -1,7 +1,12 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { Role, Institution } from '@/generated/prisma/client';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Role } from '@prisma/client';
+import { useUpsertInstitution, Institution } from '@/hooks/use-institutions';
+
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
@@ -9,36 +14,48 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useServerAction } from '@/hooks/use-server-action';
-import toast from 'react-hot-toast';
+
+const formSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  roleId: z.string().cuid('A valid role must be selected'),
+  apiEndpoint: z.string().url('Must be a valid URL'),
+  publicKey: z.string().min(10, 'Public key is required'),
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 interface InstitutionFormProps {
   isOpen: boolean;
   onClose: () => void;
-  institution?: Institution;
+  institution?: Institution | null;
   roles: Role[];
-  upsertAction: (formData: FormData) => Promise<any>;
 }
 
-export function InstitutionForm({ isOpen, onClose, institution, roles, upsertAction }: InstitutionFormProps) {
-  const formRef = useRef<HTMLFormElement>(null);
-  
-  const { execute, isPending, error } = useServerAction(upsertAction, {
-    onSuccess: () => {
-      toast.success(`Institution ${institution ? 'updated' : 'created'} successfully!`);
-      onClose();
-    },
-    onError: (err: any) => {
-      // Errors can be handled here if needed, but we'll display them inline
-    }
+export function InstitutionForm({ isOpen, onClose, institution, roles }: InstitutionFormProps) {
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(formSchema),
   });
+  
+  const upsertMutation = useUpsertInstitution();
 
-  // Reset the form when the dialog is closed or the institution changes
   useEffect(() => {
-    if (!isOpen) {
-      formRef.current?.reset();
+    if (institution) {
+      reset({
+        name: institution.name,
+        roleId: institution.roleId,
+        apiEndpoint: institution.apiEndpoint,
+        publicKey: institution.publicKey,
+      });
+    } else {
+      reset({ name: '', roleId: '', apiEndpoint: '', publicKey: '' });
     }
-  }, [isOpen]);
+  }, [institution, isOpen, reset]);
+
+  const onSubmit = (data: FormData) => {
+    upsertMutation.mutate({ id: institution?.id, ...data }, {
+      onSuccess: () => onClose(),
+    });
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -49,46 +66,34 @@ export function InstitutionForm({ isOpen, onClose, institution, roles, upsertAct
             {institution ? `Editing details for ${institution.name}.` : 'Fill in the details for the new institution.'}
           </DialogDescription>
         </DialogHeader>
-        <form ref={formRef} action={execute} className="space-y-4">
-          {institution && <input type="hidden" name="id" value={institution.id} />}
-          
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="name">Institution Name</Label>
-            <Input id="name" name="name" defaultValue={institution?.name} required />
-            {error?.name && <p className="text-xs text-destructive">{error.name[0]}</p>}
+            <Input id="name" {...register('name')} />
+            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="roleId">Role</Label>
-            <Select name="roleId" defaultValue={institution?.roleId}>
+            <Select onValueChange={(value) => reset({ ...control._formValues, roleId: value })} defaultValue={institution?.roleId}>
               <SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger>
-              <SelectContent>
-                {roles.map(role => (
-                  <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
-                ))}
-              </SelectContent>
+              <SelectContent>{roles.map(role => <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>)}</SelectContent>
             </Select>
-             {error?.roleId && <p className="text-xs text-destructive">{error.roleId[0]}</p>}
+            {errors.roleId && <p className="text-xs text-destructive">{errors.roleId.message}</p>}
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="apiEndpoint">API Endpoint</Label>
-            <Input id="apiEndpoint" name="apiEndpoint" defaultValue={institution?.apiEndpoint} required type="url" />
-             {error?.apiEndpoint && <p className="text-xs text-destructive">{error.apiEndpoint[0]}</p>}
+            <Input id="apiEndpoint" {...register('apiEndpoint')} type="url" />
+            {errors.apiEndpoint && <p className="text-xs text-destructive">{errors.apiEndpoint.message}</p>}
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="publicKey">Public Key</Label>
-            <Input id="publicKey" name="publicKey" defaultValue={institution?.publicKey} required />
-             {error?.publicKey && <p className="text-xs text-destructive">{error.publicKey[0]}</p>}
+            <Input id="publicKey" {...register('publicKey')} />
+            {errors.publicKey && <p className="text-xs text-destructive">{errors.publicKey.message}</p>}
           </div>
-          
-          {error?._form && <p className="text-sm text-destructive">{error._form[0]}</p>}
-          
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? 'Saving...' : 'Save Institution'}
+            <Button type="submit" disabled={upsertMutation.isPending}>
+              {upsertMutation.isPending ? 'Saving...' : 'Save Institution'}
             </Button>
           </DialogFooter>
         </form>

@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 // Note: Using the path consistent with your other files. If this is wrong, adjust as needed.
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
+import { InstitutionStatus, Prisma } from '@/generated/prisma/client'; // Import Prisma namespace
 
 // --- Zod Schema for robust validation ---
 // REMOVED: The clientSecret field is no longer needed.
@@ -23,12 +24,22 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10')));
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
+    // THE FIX: Get the status from query params
+    const status = searchParams.get('status') as InstitutionStatus | 'all';
+    
     const skip = (page - 1) * limit;
 
-    const where = search ? { name: { contains: search, mode: 'insensitive' as const } } : {};
+    // THE FIX: Build a more complex WHERE clause
+    let where: Prisma.InstitutionWhereInput = {};
+    if (search) {
+      where.name = { contains: search, mode: 'insensitive' };
+    }
+    if (status && status !== 'all') {
+      where.status = status;
+    }
 
     const [total, institutions] = await Promise.all([
         prisma.institution.count({ where }),
@@ -43,7 +54,7 @@ export async function GET(req: NextRequest) {
                 status: true,
                 clientId: true,
                 createdAt: true,
-                publicKey: true, // UPDATED: Include the publicKey
+                publicKey: true,
                 role: { select: { id: true, name: true } },
             },
         })
@@ -51,12 +62,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       data: institutions,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
     console.error('[GET /api/super/institutions] Error:', error);
