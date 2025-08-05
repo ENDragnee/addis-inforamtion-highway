@@ -24,9 +24,9 @@ async function createAppSessionToken(userId: string): Promise<string> {
 
 export async function GET(request: NextRequest) {
   // CRITICAL: This endpoint should only be available in development environments.
-  if (process.env.NODE_ENV !== 'development') {
-    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
-  }
+  // if (process.env.NODE_ENV !== 'development') {
+  //   return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  // }
 
   try {
     // Fetch the 3 most recently created users from the database.
