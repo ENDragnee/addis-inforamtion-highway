@@ -3,8 +3,13 @@ import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
+
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
+
+export async function GET(req: NextRequest, { params }: RouteParams) {
+  const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
     if (!session || session.user.type !== 'SUPER_USER') {
@@ -47,8 +52,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function POST(req: NextRequest, { params }: RouteParams) {
+  const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
     if (!session || session.user.type !== 'SUPER_USER') {

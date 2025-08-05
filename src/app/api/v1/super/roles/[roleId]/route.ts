@@ -8,7 +8,6 @@ import { z } from 'zod';
 const roleUpdateSchema = z.object({
   name: z.string().min(2, 'Role name must be at least 2 characters').optional(),
   description: z.string().optional(),
-  // The client should send the complete list of schema IDs for this role
   dataSchemaIds: z.array(z.string().cuid()).optional(),
 });
 

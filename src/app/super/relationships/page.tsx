@@ -26,9 +26,9 @@ export default function RelationshipsPage() {
   const [newConnection, setNewConnection] = useState<Connection | null>(null);
 
   // This page is now the single source of truth for all data.
-  const { data: graphData, isLoading: isGraphLoading, error: graphError } = useGetGraphData();
-  const { data: roles, isLoading: areRolesLoading } = useGetRoles();
-  const { data: schemas, isLoading: areSchemasLoading } = useGetSchemas();
+  const { data: graphData, isLoading: isGraphLoading, error: graphError } = useGetGraphData({page: 1, limit: 100, search: ''});
+  const { data: roles, isLoading: areRolesLoading } = useGetRoles({page: 1, limit: 100, search: ''});
+  const { data: schemas, isLoading: areSchemasLoading } = useGetSchemas({page: 1, limit: 100, search: '', sort: 'asc'});
   
   const isLoading = isGraphLoading || areRolesLoading || areSchemasLoading;
   const error = graphError; // Can be expanded to combine errors
@@ -89,12 +89,7 @@ export default function RelationshipsPage() {
             </CardContent>
           </Card>
        ) : (
-          // THE FIX: Pass the fetched `roles` and `schemas` data as props.
-          <RelationshipsTable 
-            edges={filteredEdges} 
-            roles={roles || []}
-            schemas={schemas || []}
-          />
+          <RelationshipsTable />
        )}
 
        <CreateRelationshipDialog
@@ -102,8 +97,8 @@ export default function RelationshipsPage() {
          onClose={() => setNewConnection(null)}
          sourceRole={newConnection?.source ? { id: newConnection.source, name: nodes.find(n => n.id === newConnection.source)?.data.label || '' } : null}
          targetRole={newConnection?.target ? { id: newConnection.target, name: nodes.find(n => n.id === newConnection.target)?.data.label || '' } : null}
-         roles={roles || []}
-         schemas={schemas || []}
+         roles={roles ? roles.data : []}
+         schemas={schemas ? schemas.data : []}
        />
     </div>
   );

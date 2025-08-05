@@ -37,7 +37,7 @@ export default function InstitutionsPage() {
   
   // THE FIX: Pass the entire filters object to the hook
   const { data: institutionsData, isLoading: areInstitutionsLoading, error: institutionsError } = useGetInstitutions({ ...filters, search: debouncedSearch });
-  const { data: roles, isLoading: areRolesLoading } = useGetRoles();
+  const { data: roles, isLoading: areRolesLoading } = useGetRoles({ page: 1, limit: 100, search: '' });
   const updateStatusMutation = useUpdateInstitutionStatus();
   
   const isLoading = areInstitutionsLoading || areRolesLoading;
@@ -177,7 +177,7 @@ export default function InstitutionsPage() {
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         institution={selectedInstitution}
-        roles={roles || []}
+        roles={roles ? roles.data : []}
       />
     </div>
   );

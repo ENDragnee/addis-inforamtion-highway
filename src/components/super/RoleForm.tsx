@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useUpsertRole, RoleWithDetails } from '@/hooks/use-roles';
-import { useGetSchemas } from '@/hooks/use-schemas';
+import { useGetSchemas, SchemaWithCount } from '@/hooks/use-schemas';
 
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
@@ -16,7 +16,6 @@ import { Label } from '@/components/ui/label';
 import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select';
 import Loading from '@/components/ui/loading';
 
-// Define the form's validation schema using Zod
 const formSchema = z.object({
   name: z.string().min(2, 'Role name must be at least 2 characters'),
   description: z.string().optional(),
@@ -36,45 +35,47 @@ export function RoleForm({ isOpen, onClose, role }: RoleFormProps) {
     defaultValues: { name: '', description: '' },
   });
 
-  // State for the MultiSelect component
   const [selectedSchemas, setSelectedSchemas] = useState<MultiSelectOption[]>([]);
 
-  // Fetch all available schemas for the dropdown
-  const { data: allSchemas, isLoading: areSchemasLoading } = useGetSchemas();
+  // Fetch all available schemas. We fetch a large number for the dropdown.
+  const { data: schemasData, isLoading: areSchemasLoading } = useGetSchemas({ page: 1, limit: 1000, search: '', sort: 'schemaId:asc' });
   const upsertMutation = useUpsertRole();
 
-  // Effect to populate the form when editing an existing role
   useEffect(() => {
-    if (isOpen && allSchemas) {
+    // Only populate the form if the data has loaded
+    if (isOpen && schemasData) {
       if (role) {
         reset({ name: role.name, description: role.description ?? '' });
-        // Map the role's existing schemas to the format our MultiSelect component expects
-        const currentSchemas = role.dataSchemas.map(s => ({ value: s.id, label: s.schemaId }));
+        const currentSchemas = role.dataSchemas.map((s: { id: string; schemaId: string }) => ({
+          value: s.id,
+          label: s.schemaId,
+        }));
         setSelectedSchemas(currentSchemas);
       } else {
-        // Reset form for creation
         reset({ name: '', description: '' });
         setSelectedSchemas([]);
       }
     }
-  }, [role, isOpen, reset, allSchemas]);
+  }, [role, isOpen, reset, schemasData]);
 
-  // Handle form submission
   const onSubmit = (data: FormData) => {
-    // Get the array of schema IDs from the MultiSelect's state
     const dataSchemaIds = selectedSchemas.map(s => s.value);
     
     upsertMutation.mutate({ 
       id: role?.id, 
       ...data, 
-      dataSchemaIds // Add the schema IDs to the mutation payload
+      dataSchemaIds
     }, {
       onSuccess: () => onClose(),
     });
   };
 
-  // Prepare options for the MultiSelect component
-  const schemaOptions = allSchemas?.map(s => ({ value: s.id, label: s.schemaId })) || [];
+  // THE FIX (Part 2): Access the `.data` property of the paginated response.
+  // Also, explicitly type the `s` parameter to resolve the 'any' type error.
+  const schemaOptions = schemasData?.data.map((s: SchemaWithCount) => ({
+    value: s.id,
+    label: s.schemaId
+  })) || [];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

@@ -1,23 +1,23 @@
-// File: /app/api/v1/institution/schemas/[schemaId]/route.ts
-
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authenticateInstitution } from '@/lib/m2m-auth';
+import { withM2MAuth, AuthenticatedRequest } from '@/lib/m2m-auth';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { schemaId: string } }
-) {
-  const { institution, error } = await authenticateInstitution(request);
-  if (error || !institution) {
-    return new NextResponse('Authentication failed', { status: 401 });
-  }
+// Define a type for the route's context for clarity
+interface RouteContext {
+  params: Promise<{ schemaId: string }>;
+}
 
-  const { schemaId } = params;
-
+export const GET = withM2MAuth(async (
+  request: AuthenticatedRequest,
+  { params }: RouteContext
+) => {
   try {
+    const { schemaId } = await params;
+    console.log(`Authenticated institution '${request.institution.name}' is fetching schema: ${schemaId}`);
+
     const schema = await prisma.dataSchema.findFirst({
       where: {
+        // Allows the client to use either the CUID or the human-readable schemaId
         OR: [
           { id: schemaId },
           { schemaId: schemaId },
@@ -30,8 +30,8 @@ export async function GET(
     }
 
     return NextResponse.json(schema);
-  } catch (err) {
-    console.error(err);
+  } catch (err: any) {
+    console.error(`[GET /api/v1/institution/schemas/${(await params).schemaId}] Handler Error:`, err);
     return new NextResponse('Internal Server Error', { status: 500 });
   }
-}
+});

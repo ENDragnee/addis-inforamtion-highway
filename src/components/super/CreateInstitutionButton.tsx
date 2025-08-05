@@ -4,14 +4,13 @@ import { useState } from 'react';
 import { PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InstitutionForm } from './InstitutionForm'; // We'll create this next
-import { Role } from '@prisma/client';
+import { Role } from '@/generated/prisma/client';
 
 interface CreateInstitutionButtonProps {
   roles: Role[];
-  upsertAction: (formData: FormData) => Promise<any>;
 }
 
-export function CreateInstitutionButton({ roles, upsertAction }: CreateInstitutionButtonProps) {
+export function CreateInstitutionButton({ roles }: CreateInstitutionButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -23,7 +22,6 @@ export function CreateInstitutionButton({ roles, upsertAction }: CreateInstituti
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
         roles={roles}
-        upsertAction={upsertAction}
       />
     </>
   );

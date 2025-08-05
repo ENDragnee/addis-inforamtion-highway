@@ -4,12 +4,17 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { signPayload } from "@/lib/crypto";
 
+
+interface RouteParams {
+  params: Promise<{ requestId: string }>;
+}
+
 export async function POST(
   request: NextRequest,
-  { params }: { params: { requestId: string } }
+  { params }: RouteParams
 ) {
   try {
-    const requestId = params.requestId;
+    const { requestId } = await params;
 
     // 1. Validate requestId
     const dataRequest = await prisma.dataRequest.findUnique({

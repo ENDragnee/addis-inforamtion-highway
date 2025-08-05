@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { canonicalizeBody, withM2MAuth } from "@/lib/m2m-auth";
+import { withM2MAuth } from "@/lib/m2m-auth";
 import { SignatureType } from "@/types/DataRequest";
 import { Institution } from "@/generated/prisma/client";
 import { verifyLocalSignature, verifySignature } from "@/lib/crypto";

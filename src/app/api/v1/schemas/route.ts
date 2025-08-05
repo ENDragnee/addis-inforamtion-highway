@@ -1,27 +1,26 @@
-// File: /app/api/v1/institution/schemas/route.ts
-
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { authenticateInstitution } from '@/lib/m2m-auth';
+import { withM2MAuth, AuthenticatedRequest } from '@/lib/m2m-auth';
 
-export async function GET(request: NextRequest) {
-  const { institution, error } = await authenticateInstitution(request);
-  if (error || !institution) {
-    return new NextResponse('Authentication failed', { status: 401 });
-  }
-
+export const GET = withM2MAuth(async (request: AuthenticatedRequest) => {
   try {
+    console.log(`Authenticated institution '${request.institution.name}' is listing schemas.`);
+
     const schemas = await prisma.dataSchema.findMany({
       select: {
         id: true,
         schemaId: true,
         description: true,
+        parameters: true, // It's useful for clients to know the schema structure
+      },
+      orderBy: {
+        schemaId: 'asc',
       },
     });
 
     return NextResponse.json({ data: schemas });
-  } catch (err) {
-    console.error(err);
+  } catch (err: any) {
+    console.error('[GET /api/v1/institution/schemas] Handler Error:', err);
     return new NextResponse('Internal Server Error', { status: 500 });
   }
-}
+});

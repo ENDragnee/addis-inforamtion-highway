@@ -37,7 +37,7 @@ export default function RelationshipsTable() {
   // THE FIX: We only need to fetch the first page of roles for the dropdown.
   // We can add a search feature to this in the future if needed.
   const { data: rolesData, isLoading: areRolesLoading } = useGetRoles({ page: 1, limit: 100, search: '' });
-  const { data: schemas, isLoading: areSchemasLoading } = useGetSchemas();
+  const { data: schemas, isLoading: areSchemasLoading } = useGetSchemas({ page: 1, limit: 100, search: '', sort: 'asc'});
 
   const updateStatusMutation = useUpdateRelationshipStatus();
   const deleteRelationshipMutation = useDeleteRelationship();
@@ -180,7 +180,7 @@ export default function RelationshipsTable() {
           onClose={() => setCreateDialogOpen(false)}
           // THE FIX: Extract the `data` array from the paginated response object
           roles={rolesData?.data || []}
-          schemas={schemas || []}
+          schemas={schemas ? schemas.data : []}
         />
       )}
     </>
