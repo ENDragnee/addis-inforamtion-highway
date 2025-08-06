@@ -15,6 +15,7 @@ function canonicalizeBody(body: any): string {
 // Define the shape of the authenticated request
 export interface AuthenticatedRequest extends NextRequest {
   institution: Institution;
+  signature: string; // Optional, if you want to access the signature directly
 }
 
 // THE FIX (Part 1): Update the handler type to accept additional arguments.
@@ -63,6 +64,7 @@ export function withM2MAuth(handler: AuthenticatedHandler) {
 
       const authenticatedRequest = request as AuthenticatedRequest;
       authenticatedRequest.institution = institution;
+      authenticatedRequest.signature = signatureHeader;
 
       // THE FIX (Part 3): Spread the additional arguments when calling the final handler.
       // This will correctly pass the `{ params }` object for dynamic routes.

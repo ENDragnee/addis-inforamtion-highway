@@ -7,10 +7,12 @@ import prisma from '@/lib/prisma';
  * GET /institution/me
  * Returns the authenticated institution's own metadata.
  */
-const handler = async (req: AuthenticatedRequest): Promise<NextResponse> => {
+export const GET = withM2MAuth(async (req: any, res: any) => {
+  const { requestId } = req.params.requestId;
+
   const institution = await prisma.institution.findUnique({
     where: {
-      id: req.institution.id,
+      id: requestId,
     },
     include: {
       role: true,
@@ -23,20 +25,14 @@ const handler = async (req: AuthenticatedRequest): Promise<NextResponse> => {
 
   return NextResponse.json({
     institution: {
-      id: institution.id,
       name: institution.name,
-      clientId: institution.clientId,
+      publicKey: institution.publicKey,
       status: institution.status,
-      createdAt: institution.createdAt,
-      updatedAt: institution.updatedAt,
-      apiEndpoint: institution.apiEndpoint,
       role: {
-        id: institution.role.id,
         name: institution.role.name,
         description: institution.role.description,
       },
     },
   });
-};
+})
 
-export const GET = withM2MAuth(handler);

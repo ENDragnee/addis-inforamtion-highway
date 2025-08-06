@@ -1,56 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { withM2MAuth } from "@/lib/m2m-auth";
+import { AuthenticatedRequest, withM2MAuth } from "@/lib/m2m-auth";
 import { SignatureType } from "@/types/DataRequest";
 import { Institution } from "@/generated/prisma/client";
 
-// POST /api/v1/requests/[requestId]
-export const GET = withM2MAuth(async (req: any, res: any) => {
-  try {
-    const { requestId } = req.params.requestId;
-    const institution: Institution = req.institution;
+export const GET = withM2MAuth(
+  async (req: AuthenticatedRequest, { params }: { params: { requestId: string } }) => {
+    try {
+      const { requestId } = await params;
+      const institution: Institution = req.institution;
 
-    const dataRequest = await prisma.dataRequest.findUnique({
-      where: { id: requestId },
-      include: { provider: true, signatures: true },
-    });
-    if (!dataRequest) {
-      return res.status(404).json({ error: "DataRequest not found" });
-    }
-    if (
-      dataRequest.requesterId !== institution.id &&
-      dataRequest.providerId !== institution.id
-    ) {
-      return res
-        .status(403)
-        .json({ error: "Unauthorized access to this DataRequest" });
-    }
-    if (dataRequest.status !== "APPROVED") {
-      return res.status(200).json({
-        requestId: dataRequest.id,
-        status: dataRequest.status,
+      const dataRequest = await prisma.dataRequest.findUnique({
+        where: { id: requestId },
+        include: { provider: true, signatures: true },
       });
-    }
-    const platformSignature = dataRequest.signatures.find(
+
+      if (!dataRequest) {
+        return NextResponse.json({ error: "DataRequest not found" }, { status: 404 });
+      }
+
+      if (
+        dataRequest.requesterId !== institution.id &&
+        dataRequest.providerId !== institution.id
+      ) {
+        return NextResponse.json(
+          { error: "Unauthorized access to this DataRequest" },
+          { status: 403 }
+        );
+      }
+
+      if (dataRequest.status !== "APPROVED") {
+        return NextResponse.json({
+          requestId: dataRequest.id,
+          status: dataRequest.status,
+        });
+      }
+
+      const platformSignature = dataRequest.signatures.find(
         (sig) => sig.type === SignatureType.PLATFORM
       );
 
-    if (
-      dataRequest.consentTokenJti &&
-      dataRequest.expiresAt > new Date() &&
-      dataRequest.status === "APPROVED" &&
-      platformSignature
-    ) {
+      if (
+        dataRequest.consentTokenJti &&
+        dataRequest.expiresAt > new Date() &&
+        platformSignature
+      ) {
+        return NextResponse.json({
+          requestId: dataRequest.id,
+          status: dataRequest.status,
+          platformSignature: platformSignature.signature,
+          providerEndpoint: dataRequest.provider.apiEndpoint,
+        });
+      }
 
+      // If status is APPROVED but conditions not met
       return NextResponse.json({
         requestId: dataRequest.id,
         status: dataRequest.status,
-        platformSignature: platformSignature.signature,
-        providerEndpoint: dataRequest.provider.apiEndpoint,
       });
+    } catch (err) {
+      console.error("Error getting request:", err);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 }
+      );
     }
-  } catch (err) {
-    console.error("Error getting request:", err);
-    return res.status(500).json({ error: "Internal server error" });
   }
-});
+);
