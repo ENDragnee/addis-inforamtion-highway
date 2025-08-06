@@ -15,6 +15,7 @@ function canonicalizeBody(body: any): string {
 // Define the shape of the authenticated request
 export interface AuthenticatedRequest extends NextRequest {
   institution: Institution;
+  signature: string; // Optional, if you want to access the signature directly
 }
 
 // THE FIX (Part 1): Update the handler type to accept additional arguments.
@@ -32,8 +33,8 @@ export function withM2MAuth(handler: AuthenticatedHandler) {
   // THE FIX (Part 2): The returned function also accepts additional arguments.
   return async (request: NextRequest, ...args: any[]): Promise<NextResponse> => {
     try {
-      const clientId = request.headers.get('x-client-id');
-      const signatureHeader = request.headers.get('x-signature');
+      const clientId = request.headers.get('Client-Id');
+      const signatureHeader = request.headers.get('Signature');
 
       if (!clientId || !signatureHeader) {
         return NextResponse.json({ error: 'Missing x-client-id or x-signature header' }, { status: 401 });
@@ -50,10 +51,9 @@ export function withM2MAuth(handler: AuthenticatedHandler) {
       // Clone the request to read the body
       const requestClone = request.clone();
       const body = await requestClone.text(); // Use .text() for more robust empty body handling
-      const canonicalBody = canonicalizeBody(body ? JSON.parse(body) : null);
 
       const isValid = verifySignature(
-        canonicalBody,
+        institution.clientId,
         signatureHeader,
         institution.publicKey
       );
@@ -64,6 +64,7 @@ export function withM2MAuth(handler: AuthenticatedHandler) {
 
       const authenticatedRequest = request as AuthenticatedRequest;
       authenticatedRequest.institution = institution;
+      authenticatedRequest.signature = signatureHeader;
 
       // THE FIX (Part 3): Spread the additional arguments when calling the final handler.
       // This will correctly pass the `{ params }` object for dynamic routes.

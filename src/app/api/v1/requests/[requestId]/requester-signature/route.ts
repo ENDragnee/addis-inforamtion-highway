@@ -1,111 +1,128 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { withM2MAuth } from "@/lib/m2m-auth";
+import { withM2MAuth, AuthenticatedRequest } from "@/lib/m2m-auth";
 import { SignatureType } from "@/types/DataRequest";
-import {
-  verifySignature,
-} from "@/lib/crypto";
+import { verifySignature } from "@/lib/crypto";
 import { Institution } from "@/generated/prisma/client";
 
-// POST /api/v1/requests/[requestId]/requester-signature
-export const POST = withM2MAuth(async (req: any, res: any) => {
-  try {
-    const { providerId, providerSignature, platformSignature, requesterSignature } = req.body;
-    const { requestId } = req.params;
-    const requesterInstitution: Institution = req.institution;
+export const POST = withM2MAuth(
+  async (req: AuthenticatedRequest, { params }: { params: { requestId: string } }) => {
+    try {
+      const requestId = await params.requestId;
+      const requesterInstitution: Institution = req.institution;
+      const body = await req.json();
 
-    // 1. Validate requestId
-    const providerInstitution = await prisma.institution.findUnique({
-      where: { id: providerId },
-    });
+      const {
+        providerId,
+        providerSignature,
+        platformSignature,
+        requesterSignature,
+      } = body;
 
-    if (!providerInstitution) {
-        return res.status(404).json({ error: "Provider institution not found" });
-    }
+      if (!providerId || !platformSignature || !providerSignature || !requesterSignature) {
+        return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      }
 
-    // 2. Fetch DataRequest
-    const dataRequest = await prisma.dataRequest.findUnique({
-      where: {
-        id: requestId,
-        requesterId: requesterInstitution.id,
-        providerId: providerId,
-      },
+      // 1. Fetch provider institution
+      const providerInstitution = await prisma.institution.findUnique({
+        where: { id: providerId },
+      });
+
+      if (!providerInstitution) {
+        return NextResponse.json({ error: "Provider institution not found" }, { status: 404 });
+      }
+
+      // 2. Fetch DataRequest
+      const dataRequest = await prisma.dataRequest.findUnique({
+        where: {
+          id: requestId,
+          requesterId: requesterInstitution.id,
+          providerId: providerId,
+        },
         include: {
-        provider: true,
-        requester: true,
-        signatures: true,
-        dataSchema: true,
-      },
-    });
+          provider: true,
+          requester: true,
+          signatures: true,
+          dataSchema: true,
+        },
+      });
 
-    if (!dataRequest) {
-      return res
-        .status(404)
-        .json({ error: "DataRequest not found or does not match requester" });
-    }
+      if (!dataRequest) {
+        return NextResponse.json(
+          { error: "DataRequest not found or does not match requester" },
+          { status: 404 }
+        );
+      }
 
-    // 3. Check if DataRequest is in DELIVERED state
-    if (dataRequest.status !== "DELIVERED" || !dataRequest.consentTokenJti) {
-      return res
-        .status(400)
-        .json({ error: "DataRequest is not in DELIVERED state" });
-    }   
+      // 3. Validate request status
+      if (dataRequest.status !== "DELIVERED" || !dataRequest.consentTokenJti) {
+        return NextResponse.json(
+          { error: "DataRequest is not in DELIVERED state" },
+          { status: 400 }
+        );
+      }
 
-    // 4. Verify platform signature
-    const payload = {
-      requesterId: dataRequest.requesterId,
-      providerId: dataRequest.providerId,
-      dataOwnerId: dataRequest.dataOwnerId,
-      relationshipId: dataRequest.relationshipId,
-      expiresAt: dataRequest.expiresAt.toISOString(),
-    };
+      // 4. Canonical payload to verify signatures
+      const payload = {
+        requesterId: dataRequest.requesterId,
+        providerId: dataRequest.providerId,
+        dataOwnerId: dataRequest.dataOwnerId,
+        relationshipId: dataRequest.relationshipId,
+        expiresAt: dataRequest.expiresAt.toISOString(),
+      };
 
-    if (
-      !platformSignature ||
-      !verifySignature(payload, platformSignature, providerInstitution.publicKey)
-    ) {
-      return res.status(400).json({ error: "Invalid platform signature" });
-    }
+      // 5. Verify signatures
+      const isPlatformSigValid = verifySignature(
+        payload,
+        platformSignature,
+        providerInstitution.publicKey
+      );
+      const isProviderSigValid = verifySignature(
+        payload,
+        providerSignature,
+        providerInstitution.publicKey
+      );
+      const isRequesterSigValid = verifySignature(
+        payload,
+        requesterSignature,
+        requesterInstitution.publicKey
+      );
 
-    // 5. Verify provider signature
-    if (
-      !providerSignature ||
-      !verifySignature(payload, providerSignature, providerInstitution.publicKey)
-    ) {
-      return res.status(400).json({ error: "Invalid provider signature" });
-    }
+      if (!isPlatformSigValid) {
+        return NextResponse.json({ error: "Invalid platform signature" }, { status: 400 });
+      }
+      if (!isProviderSigValid) {
+        return NextResponse.json({ error: "Invalid provider signature" }, { status: 400 });
+      }
+      if (!isRequesterSigValid) {
+        return NextResponse.json({ error: "Invalid requester signature" }, { status: 400 });
+      }
 
-    // 6. Verify requester signature
-    if (!requesterSignature ||
-      !verifySignature(payload, requesterSignature, requesterInstitution.publicKey)) {
-      return res.status(400).json({ error: "Invalid requester signature" });
-    }
+      // 6. Save requester signature
+      await prisma.dataRequestSignature.create({
+        data: {
+          type: SignatureType.REQUESTER,
+          signature: requesterSignature,
+          dataRequest: { connect: { id: requestId } },
+        },
+      });
 
-    // 7. Create requester signature
-    const requesterSignatureRecord = await prisma.dataRequestSignature.create({
-      data: {
-        type: SignatureType.REQUESTER,
-        signature: requesterSignature,
-        dataRequest: { connect: { id: requestId } },
-      },
-    });
+      // 7. Update status to COMPLETED
+      await prisma.dataRequest.update({
+        where: { id: requestId },
+        data: { status: "COMPLETED" },
+      });
 
-    // 8. Update DataRequest status to COMPLETED
-    await prisma.dataRequest.update({
-      where: { id: requestId },
-      data: { status: "COMPLETED" },
-    });
+      // TODO: 8.5 send push notification to user (implement as needed)
 
-    // 8.5 send a push notification to the user 
-
-    // 9. Return response
-    return NextResponse.json({
+      // 9. Return response
+      return NextResponse.json({
         requestId: dataRequest.id,
         status: "COMPLETED",
-    });
-
-  } catch (err) {
-    console.error("Error processing provider signature:", err);
-    return res.status(500).json({ error: "Internal server error" });
+      });
+    } catch (err) {
+      console.error("Error processing requester signature:", err);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
   }
-});
+);
