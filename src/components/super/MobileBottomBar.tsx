@@ -6,15 +6,17 @@ import {
   LayoutDashboard, 
   Building, 
   Link2,
-  ScrollText
+  ScrollText,
+  Laptop
 } from 'lucide-react';
 
 // A smaller set of primary navigation items for mobile
 const mobileNavItems = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '/super/dashboard' },
-  { name: 'Institutions', icon: Building, href: '/super/dashboard/institutions' },
-  { name: 'Relationships', icon: Link2, href: '/super/dashboard/relationships' },
-  { name: 'Requests', icon: ScrollText, href: '/super/dashboard/datarequests' },
+  { name: 'Institutions', icon: Building, href: '/super/institutions' },
+  { name: 'Relationships', icon: Link2, href: '/super/relationships' },
+  { name: 'Requests', icon: ScrollText, href: '/super/datarequests' },
+  { name: 'Testing Dashboard', icon: Laptop, href: '/super/testing-client' }, // Assuming this page exists
 ];
 
 export default function MobileBottomBar() {
