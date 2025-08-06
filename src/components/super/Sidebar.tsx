@@ -41,6 +41,7 @@ const navigationItems = [
   { name: 'Relationships', icon: Link2, href: '/super/relationships' },
   { name: 'Data Schemas', icon: Database, href: '/super/schemas' },
   { name: 'Audit', icon: ScrollText, href: '/super/audit' }, // Assuming this page exists
+  { name: 'Testing Dashboard', icon: Laptop, href: '/super/testing-client' }, // Assuming this page exists
 ];
 
 interface SidebarProps {

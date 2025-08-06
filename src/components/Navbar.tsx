@@ -11,7 +11,7 @@ export default function Navbar() {
   const navLinks = [
     { href: '/', label: 'Home' },
     { href: '/login', label: 'Login' },
-    { href: '/signup', label: 'Sign Up' },
+    //{ href: '/signup', label: 'Sign Up' },
   ];
 
   return (
