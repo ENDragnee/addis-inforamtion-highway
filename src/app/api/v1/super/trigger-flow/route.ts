@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma'; // We still need prisma to find initial IDs
+import prisma from '@/lib/prisma';
 import { z } from 'zod';
-import client from '@/lib/trustbroker'; // Import our singleton SDK instance
+import client from '@/lib/trustbroker';
 
 const triggerSchema = z.object({
   faydaId: z.string().min(1, "Fayda ID is required"),
@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
     const provider = await prisma.institution.findUnique({ where: { name: 'National Identity Agency' } });
     const dataOwner = await prisma.user.findUnique({ where: { externalId: faydaId } });
     const dataSchema = await prisma.dataSchema.findUnique({ where: { schemaId: 'schema:identity:kyc:v1' } });
+    const relationshipId = await prisma.relationship.findFirst({ where: { providerRoleId: 'cmdz0rpdc0002zvm0vogszru5', requesterRoleId:'cmdz0rope0001zvm0s3x9ycbn'} });
 
     if (!provider || !dataOwner || !dataSchema) {
       return NextResponse.json({ error: 'Seeded data is incomplete. Could not find all required entities.' }, { status: 404 });
@@ -41,9 +42,10 @@ export async function POST(req: NextRequest) {
       providerId: provider.id,
       dataOwnerId: dataOwner.id,
       schemaId: dataSchema.id,
+      relationshipId: relationshipId?.id,
     });
     const requestId = createdRequest.requestId;
-    console.log(`[Flow] Request created with ID: ${requestId}`);
+    console.log(`[Flow] Request created with ID: ${requestId}. The full request object:`, createdRequest);
 
     // --- Step 3: Simulate User Consent (This part is still manual for the demo) ---
     console.log('[Flow] Step 3: Manually updating request to APPROVED to simulate user consent...');

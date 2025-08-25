@@ -10,9 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Loader2, Play, AlertCircle, CheckCircle, Terminal } from 'lucide-react';
 
 // --- Type Definitions ---
@@ -49,7 +47,7 @@ export default function TestingClientPage() {
     onSuccess: (data) => {
       setLog(prevLog => [
         ...prevLog,
-        { id: 2, type: 'info', message: 'User consent simulated and approved.' },
+        { id: 2, type: 'info', message: `User consent simulated and approved. message: ${data.finalData.message}`  },
         { id: 3, type: 'info', message: 'Polling for status... Data received from provider.' },
         { id: 4, type: 'info', message: 'Verifying provider signature...' },
         { id: 5, type: 'success', message: 'Flow completed successfully!' },

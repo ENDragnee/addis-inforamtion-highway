@@ -1,83 +1,80 @@
 import crypto from 'crypto';
 
 /**
- * A robust function for creating a consistent, sorted string from an object.
- * This ensures that the same object will always produce the same string for signing.
+ * Recursively sorts the keys of an object to ensure consistent canonicalization.
  */
 function sortKeys(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(sortKeys);
-  } else if (obj !== null && typeof obj === 'object') {
+  if (Array.isArray(obj)) return obj.map(sortKeys);
+  if (obj !== null && typeof obj === 'object') {
     return Object.keys(obj)
       .sort()
-      .reduce((result: any, key: string) => {
-        result[key] = sortKeys(obj[key]);
-        return result;
+      .reduce((acc: any, key: string) => {
+        acc[key] = sortKeys(obj[key]);
+        return acc;
       }, {});
   }
   return obj;
 }
 
 /**
- * Signs a payload using the provided RSA private key.
- * @param payload The object or string to sign.
- * @param privateKeyPem The PEM-formatted RSA private key.
- * @returns A Base64-encoded signature.
+ * Canonicalizes a payload to a deterministic string for signing.
+ */
+function canonicalize(payload: object | string): string {
+  return typeof payload === 'string' ? payload : JSON.stringify(sortKeys(payload));
+}
+
+/**
+ * Signs a payload using the provided RSA private key (PEM format).
+ * Returns a Base64-encoded signature.
  */
 export function signPayload(payload: object | string, privateKeyPem: string): string {
-  const canonical = typeof payload === 'string' ? payload : JSON.stringify(sortKeys(payload));
-  
-  // THE FIX: Use 'RSA-SHA256' to match your RSA keys.
+  const canonical = canonicalize(payload);
   const signer = crypto.createSign('RSA-SHA256');
   signer.update(canonical);
   signer.end();
-
   return signer.sign(privateKeyPem, 'base64');
 }
 
 /**
- * Verifies a payload's signature using the provided RSA public key.
- * @param payload The original payload that was signed.
- * @param signature The Base64-encoded signature to verify.
- * @param publicKey The PEM-formatted RSA public key from the database.
- * @returns True if the signature is valid, false otherwise.
+ * Verifies a payload's signature using a base64-encoded public key.
+ * Decodes the public key once and checks the signature.
  */
 export function verifySignature(
   payload: object | string,
   signature: string,
-  publicKey: string
+  publicKeyBase64: string
 ): boolean {
   try {
-    const canonical = typeof payload === 'string' ? payload : JSON.stringify(sortKeys(payload));
-    
-    // THE FIX: Use 'RSA-SHA256' for verification, matching the signing algorithm.
+    const canonical = canonicalize(payload);
+
+    // Decode base64 once to get PEM
+    const publicKeyPem = Buffer.from(publicKeyBase64, 'base64').toString('utf8');
+
+    // Create KeyObject for verification
+    const keyObject = crypto.createPublicKey(publicKeyPem);
+
+    // Clean the signature (remove whitespace/newlines)
+    const cleanSignature = signature.replace(/\s/g, '');
+
+    // Perform verification
     const verifier = crypto.createVerify('RSA-SHA256');
     verifier.update(canonical);
     verifier.end();
-
-    // The publicKey is the plain PEM text from the database and is used directly.
-    return verifier.verify(publicKey, signature, 'base64');
+    return verifier.verify(keyObject, cleanSignature, 'base64');
   } catch (error) {
-    console.error("Signature verification failed:", error);
-    return false; // Ensure the function returns false on any cryptographic error.
+    console.error('Signature verification failed:', error);
+    return false;
   }
 }
 
 /**
- * A utility to canonicalize a request body, typically for logging or comparison.
+ * Verifies a payload's signature using the SYSTEM_PUBLIC_KEY_B64 from environment.
  */
-export function canonicalizeBody(body: any): string {
-  const sorted = sortKeys(body);
-  return JSON.stringify(sorted);
-}
-
-// NOTE: The `verifyLocalSignature` function is not used in the main flow but is
-// updated here for consistency, assuming SYSTEM_... keys are also RSA.
-export function verifyLocalSignature(payload: object, signature: string) {
-  const canonical = JSON.stringify(sortKeys(payload));
+export function verifyLocalSignature(payload: object, signature: string): boolean {
+  const canonical = canonicalize(payload);
+  const publicKeyPem = Buffer.from(process.env.SYSTEM_PUBLIC_KEY_B64!, 'base64').toString('utf8');
   const verifier = crypto.createVerify('RSA-SHA256');
   verifier.update(canonical);
   verifier.end();
-  const publicKeyPem = Buffer.from(process.env.SYSTEM_PUBLIC_KEY_B64!, 'base64').toString('utf8');
   return verifier.verify(publicKeyPem, signature, 'base64');
 }

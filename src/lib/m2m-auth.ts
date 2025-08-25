@@ -42,7 +42,7 @@ export function withM2MAuth(handler: AuthenticatedHandler) {
 
       // 2. Find the institution in the database using the Client ID
       const institution = await prisma.institution.findUnique({
-        where: { clientId },
+        where: { id: clientId },
       });
 
       if (!institution) {
@@ -60,7 +60,7 @@ export function withM2MAuth(handler: AuthenticatedHandler) {
       // It verifies the signature from the header against the request body,
       // using the institution's public key stored in the database.
       const isValid = verifySignature(
-        body,
+        institution.id,
         signatureHeader,
         institution.publicKey
       );
